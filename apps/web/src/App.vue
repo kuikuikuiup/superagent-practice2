@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { Message } from '@arco-design/web-vue';
 import type { Task, TaskFilter, TaskInput, TaskStatus } from './api/types';
 import { createDefaultFilter } from './api/types';
 import { ApiError, toApiError } from './api/client';
 import Board from './components/Board.vue';
-import ConfirmDialog from './components/ConfirmDialog.vue';
-import ErrorBanner from './components/ErrorBanner.vue';
-import Icon from './components/Icon.vue';
 import StatsBar from './components/StatsBar.vue';
 import TaskDetail from './components/TaskDetail.vue';
 import TaskModal from './components/TaskModal.vue';
@@ -82,21 +80,29 @@ async function onModalSubmit(payload: TaskInput): Promise<void> {
   try {
     if (state.mode === 'create') {
       await createTask(payload);
+      Message.success(`已创建「${payload.title}」`);
     } else if (state.task !== null) {
       await updateTask(state.task.id, payload);
+      Message.success('保存成功');
     } else {
       throw new ApiError('INTERNAL_ERROR', '未找到要编辑的任务');
     }
     modal.value = null;
   } catch (error) {
     modalError.value = toApiError(error);
+    Message.error(toApiError(error).message);
   } finally {
     modalSubmitting.value = false;
   }
 }
 
 async function onMove(id: string, status: TaskStatus): Promise<void> {
-  await moveTask(id, status);
+  const ok = await moveTask(id, status);
+  if (ok) {
+    Message.success('任务状态已更新');
+  } else if (actionError.value !== null) {
+    Message.error(actionError.value.message);
+  }
 }
 
 function requestDelete(task: Task): void {
@@ -120,8 +126,10 @@ async function confirmDelete(): Promise<void> {
     if (detailId.value === task.id) detailId.value = null;
     if (modal.value?.mode === 'edit' && modal.value.task?.id === task.id) modal.value = null;
     deleteCandidate.value = null;
+    Message.success('任务已删除');
   } catch (error) {
     deleteError.value = toApiError(error).message;
+    Message.error(toApiError(error).message);
   } finally {
     deleteSubmitting.value = false;
   }
@@ -132,7 +140,7 @@ async function confirmDelete(): Promise<void> {
   <div class="app">
     <header class="app-header">
       <span class="app-logo">
-        <Icon name="columns" :size="20" />
+        <icon-apps />
       </span>
       <div class="app-heading">
         <h1>任务看板</h1>
@@ -140,20 +148,26 @@ async function confirmDelete(): Promise<void> {
       </div>
     </header>
 
-    <ErrorBanner
+    <!-- 加载失败：arco Alert，可重试/可关闭；操作失败：arco Alert 提示 -->
+    <a-alert v-if="loadError !== null" type="error" class="app-alert" @close="loadError = null">
+      {{ loadError.message }}
+      <template #icon><icon-exclamation-circle-fill /></template>
+      <template #action>
+        <a-button size="mini" type="primary" class="app-alert-retry" @click="refresh">
+          <template #icon><icon-refresh /></template>
+          重试
+        </a-button>
+      </template>
+    </a-alert>
+    <a-alert
       v-if="actionError !== null"
-      :message="actionError.message"
-      dismissible
-      @dismiss="clearActionError"
-    />
-    <ErrorBanner
-      v-if="loadError !== null"
-      :message="loadError.message"
-      retryable
-      dismissible
-      @retry="refresh"
-      @dismiss="clearActionError(); loadError = null"
-    />
+      type="warning"
+      class="app-alert"
+      @close="clearActionError()"
+    >
+      {{ actionError.message }}
+      <template #icon><icon-exclamation-circle /></template>
+    </a-alert>
 
     <StatsBar :stats="stats" :loading="loading" />
 
@@ -198,30 +212,39 @@ async function confirmDelete(): Promise<void> {
       @delete="requestDelete"
     />
 
-    <ConfirmDialog
+    <!-- 删除二次确认：arco Modal -->
+    <a-modal
       v-if="deleteCandidate !== null"
+      :visible="true"
+      :width="380"
       title="删除任务"
-      :message="deleteMessage"
-      :error="deleteError"
-      :loading="deleteSubmitting"
-      @confirm="confirmDelete"
+      ok-text="确认删除"
+      cancel-text="取消"
+      :ok-loading="deleteSubmitting"
+      :ok-button-props="{ status: 'danger' }"
+      unmount-on-close
+      @ok="confirmDelete"
       @cancel="cancelDelete"
-    />
+      @close="cancelDelete"
+    >
+      <p class="app-delete-message">{{ deleteMessage }}</p>
+      <p v-if="deleteError !== null" class="app-delete-error" role="alert">{{ deleteError }}</p>
+    </a-modal>
   </div>
 </template>
 
 <style scoped>
 .app {
-  max-width: 1440px;
+  max-width: var(--app-max-width);
   margin: 0 auto;
-  padding: 24px 32px 48px;
+  padding: var(--app-space-5) var(--app-space-6) var(--app-space-7);
 }
 
 .app-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: var(--app-space-3);
+  margin-bottom: var(--app-space-5);
 }
 
 .app-logo {
@@ -230,29 +253,55 @@ async function confirmDelete(): Promise<void> {
   justify-content: center;
   width: 36px;
   height: 36px;
-  color: #FFFFFF;
-  background: var(--color-primary);
-  border-radius: var(--radius-md);
+  color: var(--color-bg-white);
+  background: var(--app-primary);
+  border-radius: var(--app-radius);
 }
 
 .app-heading h1 {
   font-size: 20px;
   font-weight: 600;
   line-height: 1.3;
+  color: var(--app-text-1);
 }
 
 .app-heading p {
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--app-text-3);
+}
+
+.app-alert {
+  margin-bottom: var(--app-space-4);
+}
+
+.app-alert-retry {
+  color: var(--color-bg-white);
+}
+
+.app-alert :deep(.arco-btn-primary.app-alert-retry) {
+  background: var(--app-danger);
+}
+
+.app-delete-message {
+  font-size: 13px;
+  color: var(--app-text-2);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.app-delete-error {
+  margin-top: var(--app-space-2);
+  font-size: 12px;
+  color: var(--app-danger);
 }
 
 @media (max-width: 575.98px) {
   .app {
-    padding: 16px 12px 32px;
+    padding: var(--app-space-4) var(--app-space-3) var(--app-space-6);
   }
 
   .app-header {
-    margin-bottom: 14px;
+    margin-bottom: var(--app-space-4);
   }
 
   .app-heading h1 {

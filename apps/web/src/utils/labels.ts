@@ -38,3 +38,10 @@ export const SORT_FIELD_OPTIONS: readonly SelectOption<SortField>[] = SORT_FIELD
   value: field,
   label: SORT_FIELD_LABELS[field],
 }));
+
+/** 优先级 → arco Tag 预设色（语义：高=红 / 中=橙 / 低=绿）。 */
+export const PRIORITY_TAG_COLORS: Record<TaskPriority, 'red' | 'orange' | 'green'> = {
+  high: 'red',
+  medium: 'orange',
+  low: 'green',
+};

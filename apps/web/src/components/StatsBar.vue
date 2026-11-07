@@ -34,7 +34,9 @@ const showSkeleton = computed(() => props.loading && props.stats === null);
   <section class="stats-bar" aria-label="任务统计">
     <div v-for="card in cards" :key="card.key" class="stat-card" role="group" :aria-label="card.label">
       <span class="stat-label">{{ card.label }}</span>
-      <span v-if="showSkeleton" class="skeleton stat-value-skeleton" aria-hidden="true"></span>
+      <a-skeleton v-if="showSkeleton" line :animation="true" aria-hidden="true">
+        <a-skeleton-shape class="stat-value-shape" shape="square" />
+      </a-skeleton>
       <span v-else class="stat-value" :class="card.tone === '' ? '' : `value--${card.tone}`">
         {{ card.value }}
       </span>
@@ -46,47 +48,47 @@ const showSkeleton = computed(() => props.loading && props.stats === null);
 .stats-bar {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--app-space-3);
+  margin-bottom: var(--app-space-4);
 }
 
 .stat-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  gap: var(--app-space-1);
+  padding: var(--app-space-4);
+  background: var(--app-card-bg);
+  border: 1px solid var(--app-card-border);
+  border-radius: var(--app-radius);
 }
 
 .stat-label {
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--app-text-3);
 }
 
 .stat-value {
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.2;
-  color: var(--color-text);
+  color: var(--app-text-1);
 }
 
-.stat-value-skeleton {
+.stat-value-shape {
   width: 56px;
   height: 28px;
 }
 
 .value--primary {
-  color: var(--color-primary);
+  color: var(--app-primary);
 }
 
 .value--success {
-  color: var(--color-success);
+  color: var(--app-success);
 }
 
 .value--danger {
-  color: var(--color-danger);
+  color: var(--app-danger);
 }
 
 @media (max-width: 991.98px) {

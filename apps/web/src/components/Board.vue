@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import BoardColumn from './BoardColumn.vue';
-import Icon from './Icon.vue';
-import { STATUS_LABELS } from '../utils/labels';
 import type { Task, TaskStatus } from '../api/types';
 import { TASK_STATUSES } from '../api/types';
+import { STATUS_LABELS } from '../utils/labels';
 
 const props = defineProps<{
   tasks: Task[];
@@ -49,33 +48,35 @@ function onDropStatus(status: TaskStatus, event: DragEvent): void {
 
 <template>
   <section class="board" aria-label="任务看板">
-    <!-- 首次加载骨架 -->
+    <!-- 首次加载：arco Skeleton 提示三列布局骨架（比整体 Spin 更能传达版式） -->
     <div v-if="loading && tasks.length === 0" class="board-grid" aria-hidden="true">
       <div v-for="n in 3" :key="n" class="skeleton-column">
-        <span class="skeleton skeleton-column-title"></span>
-        <span v-for="m in 3" :key="m" class="skeleton skeleton-card"></span>
+        <a-skeleton :animation="true" line>
+          <a-skeleton-shape class="skeleton-column-title" shape="square" />
+        </a-skeleton>
+        <a-skeleton :animation="true" line>
+          <a-skeleton-line class="skeleton-card" />
+        </a-skeleton>
+        <a-skeleton :animation="true" line>
+          <a-skeleton-line class="skeleton-card" />
+        </a-skeleton>
       </div>
     </div>
 
     <!-- 空状态：区分“没有任何任务”与“筛选后为空” -->
     <div v-else-if="tasks.length === 0" class="board-empty">
-      <span class="board-empty-icon">
-        <Icon name="inbox" :size="28" />
-      </span>
-      <h2 class="board-empty-title">
-        {{ props.filtersActive ? '没有匹配的任务' : '暂无任务' }}
-      </h2>
+      <a-empty :description="props.filtersActive ? '没有匹配的任务' : '暂无任务'" class="board-empty-inner" />
       <p class="board-empty-text">
         {{ props.filtersActive ? '换个关键词或清除筛选，即可看到更多任务。' : '点击“新建任务”，开始整理你的日程。' }}
       </p>
-      <button v-if="props.filtersActive" type="button" class="btn btn-ghost" @click="emit('clear-filters')">
-        <Icon name="x" :size="16" />
+      <a-button v-if="props.filtersActive" data-action="clear-filters" @click="emit('clear-filters')">
+        <template #icon><icon-close /></template>
         清除筛选
-      </button>
-      <button v-else type="button" class="btn btn-primary" @click="emit('create')">
-        <Icon name="plus" :size="16" />
+      </a-button>
+      <a-button v-else type="primary" data-action="create" @click="emit('create')">
+        <template #icon><icon-plus /></template>
         新建任务
-      </button>
+      </a-button>
     </div>
 
     <!-- 三列看板 -->
@@ -98,25 +99,21 @@ function onDropStatus(status: TaskStatus, event: DragEvent): void {
 </template>
 
 <style scoped>
-.board {
-  /* 占位，列间距由内部控制 */
-}
-
 .board-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--app-space-4);
   align-items: start;
 }
 
 .skeleton-column {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  background: var(--color-surface-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  gap: var(--app-space-3);
+  padding: var(--app-space-3);
+  background: var(--app-muted-bg);
+  border: 1px solid var(--app-card-border);
+  border-radius: var(--app-radius);
 }
 
 .skeleton-column-title {
@@ -125,47 +122,38 @@ function onDropStatus(status: TaskStatus, event: DragEvent): void {
 }
 
 .skeleton-card {
-  width: 100%;
   height: 96px;
-  border-radius: var(--radius-md);
+  width: 100%;
 }
 
 .board-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 56px 24px;
+  gap: var(--app-space-2);
+  padding: var(--app-space-7) var(--app-space-5);
   text-align: center;
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  color: var(--color-text-muted);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: var(--app-radius);
+  color: var(--app-text-3);
 }
 
-.board-empty-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--color-surface-muted);
-  color: var(--color-text-muted);
-  margin-bottom: 6px;
-}
-
-.board-empty-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
+.board-empty-inner {
+  margin-bottom: var(--app-space-1);
 }
 
 .board-empty-text {
   font-size: 13px;
+  color: var(--app-text-3);
 }
 
-.board-empty .btn {
-  margin-top: 10px;
+.board-empty .arco-btn {
+  margin-top: var(--app-space-2);
+}
+
+.board-empty :deep(.arco-empty-description) {
+  color: var(--app-text-2);
+  font-size: 15px;
 }
 
 @media (max-width: 991.98px) {

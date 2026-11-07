@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import Icon from './Icon.vue';
 import type { SortOrder, TaskFilter, TaskPriority, SortField, TaskStatus } from '../api/types';
-import { createDefaultFilter } from '../api/types';
-import { PRIORITY_OPTIONS, STATUS_OPTIONS, SORT_FIELD_OPTIONS } from '../utils/labels';
+import { createDefaultFilter, TASK_STATUSES, TASK_PRIORITIES, SORT_FIELDS, SORT_ORDERS } from '../api/types';
+import { PRIORITY_LABELS, SORT_FIELD_LABELS, STATUS_LABELS } from '../utils/labels';
 
 const props = defineProps<{
   filters: TaskFilter;
@@ -21,26 +20,29 @@ function set<K extends keyof TaskFilter>(key: K, value: TaskFilter[K]): void {
   emit('update:filters', { ...props.filters, [key]: value });
 }
 
-function onKeywordInput(event: Event): void {
-  set('keyword', (event.target as HTMLInputElement).value);
+function onKeywordInput(value: string | undefined): void {
+  set('keyword', value ?? '');
 }
 
-function onStatusChange(event: Event): void {
-  const value = (event.target as HTMLSelectElement).value;
-  set('status', (value === '' ? '' : value) as TaskStatus | '');
+function onStatusChange(value: unknown): void {
+  const normalized = typeof value === 'string' && (TASK_STATUSES as readonly string[]).includes(value) ? value : '';
+  set('status', normalized as TaskStatus | '');
 }
 
-function onPriorityChange(event: Event): void {
-  const value = (event.target as HTMLSelectElement).value;
-  set('priority', (value === '' ? '' : value) as TaskPriority | '');
+function onPriorityChange(value: unknown): void {
+  const normalized = typeof value === 'string' && (TASK_PRIORITIES as readonly string[]).includes(value) ? value : '';
+  set('priority', normalized as TaskPriority | '');
 }
 
-function onSortChange(event: Event): void {
-  set('sort', (event.target as HTMLSelectElement).value as SortField);
+function onSortChange(value: unknown): void {
+  const normalized =
+    typeof value === 'string' && (SORT_FIELDS as readonly string[]).includes(value) ? value : 'createdAt';
+  set('sort', normalized as SortField);
 }
 
-function onOrderChange(event: Event): void {
-  set('order', (event.target as HTMLSelectElement).value as SortOrder);
+function onOrderChange(value: unknown): void {
+  const normalized = typeof value === 'string' && (SORT_ORDERS as readonly string[]).includes(value) ? value : 'desc';
+  set('order', normalized as SortOrder);
 }
 
 // 默认排序即为清除（createdAt + desc）；有关键词/状态/优先级筛选时也显示清除按钮。
@@ -53,66 +55,76 @@ const canClear = computed(() => {
 <template>
   <section class="toolbar" aria-label="任务筛选与操作">
     <div class="toolbar-group">
-      <div class="search">
-        <Icon name="search" :size="16" />
-        <input
-          type="text"
-          placeholder="搜索标题或描述…"
-          aria-label="关键词搜索"
-          :value="props.filters.keyword"
-          @input="onKeywordInput"
-        />
-        <button
-          v-if="props.filters.keyword !== ''"
-          type="button"
-          class="search-clear"
-          aria-label="清空关键词"
-          @click="set('keyword', '')"
-        >
-          <Icon name="x" :size="14" />
-        </button>
-      </div>
+      <a-input
+        class="toolbar-search"
+        placeholder="搜索标题或描述…"
+        allow-clear
+        :model-value="props.filters.keyword === '' ? undefined : props.filters.keyword"
+        @input="onKeywordInput"
+        @clear="onKeywordInput('')"
+      />
 
-      <select class="select" aria-label="状态筛选" :value="props.filters.status" @change="onStatusChange">
-        <option value="">全部状态</option>
-        <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
+      <a-select
+        class="toolbar-select toolbar-select--status"
+        placeholder="全部状态"
+        allow-clear
+        :model-value="props.filters.status === '' ? undefined : props.filters.status"
+        @change="onStatusChange"
+        @clear="onStatusChange('')"
+      >
+        <a-option v-for="status in TASK_STATUSES" :key="status" :value="status">
+          {{ STATUS_LABELS[status] }}
+        </a-option>
+      </a-select>
 
-      <select class="select" aria-label="优先级筛选" :value="props.filters.priority" @change="onPriorityChange">
-        <option value="">全部优先级</option>
-        <option v-for="option in PRIORITY_OPTIONS" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
+      <a-select
+        class="toolbar-select toolbar-select--priority"
+        placeholder="全部优先级"
+        allow-clear
+        :model-value="props.filters.priority === '' ? undefined : props.filters.priority"
+        @change="onPriorityChange"
+        @clear="onPriorityChange('')"
+      >
+        <a-option v-for="priority in TASK_PRIORITIES" :key="priority" :value="priority">
+          {{ PRIORITY_LABELS[priority] }}
+        </a-option>
+      </a-select>
 
-      <select class="select" aria-label="排序字段" :value="props.filters.sort" @change="onSortChange">
-        <option v-for="option in SORT_FIELD_OPTIONS" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
+      <a-select
+        class="toolbar-select toolbar-select--sort"
+        :model-value="props.filters.sort"
+        @change="onSortChange"
+      >
+        <a-option v-for="field in SORT_FIELDS" :key="field" :value="field">
+          {{ SORT_FIELD_LABELS[field] }}
+        </a-option>
+      </a-select>
 
-      <select class="select" aria-label="排序方向" :value="props.filters.order" @change="onOrderChange">
-        <option value="desc">倒序</option>
-        <option value="asc">正序</option>
-      </select>
+      <a-select
+        class="toolbar-select toolbar-select--order"
+        :model-value="props.filters.order"
+        @change="onOrderChange"
+      >
+        <a-option v-for="order in SORT_ORDERS" :key="order" :value="order">
+          {{ order === 'desc' ? '倒序' : '正序' }}
+        </a-option>
+      </a-select>
 
-      <button v-if="canClear" type="button" class="clear-btn" @click="emit('update:filters', createDefaultFilter())">
-        <Icon name="x" :size="14" />
+      <a-button v-if="canClear" class="toolbar-clear" @click="emit('update:filters', createDefaultFilter())">
+        <template #icon><icon-close /></template>
         清除筛选
-      </button>
+      </a-button>
     </div>
 
     <div class="toolbar-actions">
-      <button type="button" class="btn btn-ghost" :disabled="props.loading" @click="emit('refresh')">
-        <Icon name="refresh" :size="16" :class="{ spinning: props.loading }" />
-        <span>刷新</span>
-      </button>
-      <button type="button" class="btn btn-primary" @click="emit('create')">
-        <Icon name="plus" :size="16" />
+      <a-button :loading="props.loading" @click="emit('refresh')">
+        <template #icon><icon-refresh /></template>
+        刷新
+      </a-button>
+      <a-button type="primary" @click="emit('create')">
+        <template #icon><icon-plus /></template>
         新建任务
-      </button>
+      </a-button>
     </div>
   </section>
 </template>
@@ -121,15 +133,15 @@ const canClear = computed(() => {
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--app-space-3);
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: var(--app-space-4);
 }
 
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--app-space-2);
   flex-wrap: wrap;
   flex: 1;
   min-width: 0;
@@ -138,136 +150,78 @@ const canClear = computed(() => {
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--app-space-2);
+  flex-wrap: wrap;
 }
 
-.search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.toolbar-search {
   width: 260px;
   max-width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.search:focus-within {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(22, 93, 255, 0.12);
+.toolbar-select--status {
+  width: 116px;
 }
 
-.search input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--color-text);
+.toolbar-select--priority {
+  width: 128px;
 }
 
-.search input::placeholder {
-  color: var(--color-text-muted);
+.toolbar-select--sort {
+  width: 132px;
 }
 
-.search input:focus-visible {
-  outline: none;
+.toolbar-select--order {
+  width: 92px;
 }
 
-.search-clear {
-  display: inline-flex;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
+.toolbar-clear {
+  color: var(--app-text-3);
 }
 
-.search-clear:hover {
-  color: var(--color-text-secondary);
-}
-
-.select {
-  height: 36px;
-  padding: 0 8px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-}
-
-.select:hover {
-  border-color: var(--color-border-strong);
-}
-
-.clear-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 36px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-md);
-}
-
-.clear-btn:hover {
-  color: var(--color-text-secondary);
-  background: var(--color-surface-muted);
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: var(--radius-md);
-  font-weight: 500;
-  font-size: 14px;
-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-}
-
-.btn-primary {
-  background: var(--color-primary);
-  color: #FFFFFF;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.btn-primary:active:not(:disabled) {
-  background: var(--color-primary-active);
-}
-
-.btn-primary:disabled {
-  opacity: 0.7;
-}
-
-.btn-ghost {
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-}
-
-.btn-ghost:hover:not(:disabled) {
-  border-color: var(--color-border-strong);
-  color: var(--color-text);
-}
-
-.spinning {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
+@media (max-width: 575.98px) {
+  .toolbar-search,
+  .toolbar-select--status,
+  .toolbar-select--priority,
+  .toolbar-select--sort,
+  .toolbar-select--order {
+    width: 100%;
   }
-  to {
-    transform: rotate(360deg);
+
+  .toolbar-actions {
+    width: 100%;
+  }
+
+  .toolbar-actions :deep(.arco-btn) {
+    flex: 1;
+  }
+}
+</style>
+
+<style>
+/* arco Select 为多根组件，类与宽度须用全局选择器固定 */
+.toolbar-group .arco-select.toolbar-select--status {
+  width: 116px;
+}
+
+.toolbar-group .arco-select.toolbar-select--priority {
+  width: 128px;
+}
+
+.toolbar-group .arco-select.toolbar-select--sort {
+  width: 132px;
+}
+
+.toolbar-group .arco-select.toolbar-select--order {
+  width: 92px;
+}
+
+@media (max-width: 575.98px) {
+  .toolbar-group .arco-select.toolbar-select--status,
+  .toolbar-group .arco-select.toolbar-select--priority,
+  .toolbar-group .arco-select.toolbar-select--sort,
+  .toolbar-group .arco-select.toolbar-select--order {
+    width: 100%;
   }
 }
 </style>

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { Modal as AModal, Popconfirm as APopconfirm, Select as ASelect } from '@arco-design/web-vue';
+import { flushPromises } from '@vue/test-utils';
+import { nextTick } from 'vue';
 
 vi.mock('../../src/api/tasks', () => ({
   fetchTasks: vi.fn(),
@@ -10,7 +12,9 @@ vi.mock('../../src/api/tasks', () => ({
   deleteTask: vi.fn(),
 }));
 
-import { deleteTask, fetchStats, fetchTasks } from '../../src/api/tasks';
+import { createTask, deleteTask, fetchStats, fetchTasks } from '../../src/api/tasks';
+import { Message } from '@arco-design/web-vue';
+import { mountWithArco } from '../helpers/arco';
 import App from '../../src/App.vue';
 import type { Task } from '../../src/api/types';
 
@@ -32,15 +36,36 @@ function stats() {
   return { total: 1, todo: 1, inProgress: 0, done: 0, doneRate: 0, overdue: 0 };
 }
 
+async function settle() {
+  await flushPromises();
+  await nextTick();
+  await flushPromises();
+  await nextTick();
+  await flushPromises();
+}
+
+async function mountApp() {
+  const wrapper = mountWithArco(App);
+  await settle();
+  return wrapper;
+}
+
+function buttonByText(wrapper: Awaited<ReturnType<typeof mountApp>>, text: string) {
+  return wrapper.findAll('button').find((b) => b.text().includes(text));
+}
+
 beforeEach(() => {
   vi.mocked(fetchTasks).mockResolvedValue({ items: [buildTask()], total: 1 });
   vi.mocked(fetchStats).mockResolvedValue(stats());
+  vi.mocked(createTask).mockResolvedValue(buildTask());
+  vi.mocked(deleteTask).mockResolvedValue(undefined);
+  vi.spyOn(Message, 'success').mockImplementation(() => null as never);
+  vi.spyOn(Message, 'error').mockImplementation(() => null as never);
 });
 
 describe('App', () => {
   it('loads tasks and stats on mount and renders the board', async () => {
-    const wrapper = mount(App);
-    await flushPromises();
+    const wrapper = await mountApp();
     expect(fetchTasks).toHaveBeenCalledTimes(1);
     expect(fetchStats).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain('任务总数');
@@ -48,27 +73,14 @@ describe('App', () => {
     expect(wrapper.find('.card-title').text()).toBe('整理需求');
   });
 
-  it('deletes a task after explicit confirmation', async () => {
-    const wrapper = mount(App);
-    await flushPromises();
-    await wrapper.find('button[aria-label="删除任务"]').trigger('click');
-    expect(wrapper.find('.confirm').exists()).toBe(true);
-    await wrapper.find('button.btn-danger-solid').trigger('click');
-    await flushPromises();
-    expect(deleteTask).toHaveBeenCalledWith('t1');
-    expect(wrapper.find('.confirm').exists()).toBe(false);
-  });
-
   it('creates a task through the modal and maps form values to the API', async () => {
-    const createTask = (await import('../../src/api/tasks')).createTask;
-    vi.mocked(createTask).mockResolvedValue(buildTask());
-    const wrapper = mount(App);
-    await flushPromises();
-    await wrapper.find('.toolbar .btn-primary').trigger('click');
-    expect(wrapper.find('.modal').exists()).toBe(true);
+    const wrapper = await mountApp();
+    await buttonByText(wrapper, '新建任务')?.trigger('click');
+    await settle();
+    expect(wrapper.find('#task-title').exists()).toBe(true);
     await wrapper.find('#task-title').setValue('新任务');
-    await wrapper.find('form').trigger('submit');
-    await flushPromises();
+    await buttonByText(wrapper, '创建')?.trigger('click');
+    await settle();
     expect(createTask).toHaveBeenCalledWith({
       title: '新任务',
       description: '',
@@ -76,46 +88,83 @@ describe('App', () => {
       priority: 'medium',
       dueDate: null,
     });
-    expect(wrapper.find('.modal').exists()).toBe(false);
+    expect(Message.success).toHaveBeenCalledWith('已创建「新任务」');
+    expect(wrapper.find('#task-title').exists()).toBe(false);
+  });
+
+  it('deletes a task after the card Popconfirm → Modal confirmation', async () => {
+    const wrapper = await mountApp();
+    wrapper.getComponent(APopconfirm).vm.$emit('ok');
+    await settle();
+    expect(wrapper.getComponent(AModal).text()).toContain('确认删除');
+    await buttonByText(wrapper, '确认删除')?.trigger('click');
+    await settle();
+    expect(deleteTask).toHaveBeenCalledWith('t1');
+    expect(Message.success).toHaveBeenCalledWith('任务已删除');
+    expect(wrapper.findComponent(AModal).exists()).toBe(false);
+  });
+
+  it('asks for explicit confirmation before deleting from the detail drawer', async () => {
+    const wrapper = await mountApp();
+    await wrapper.find('.card-title').trigger('click');
+    await settle();
+    const deleteButton = wrapper
+      .findAll('button')
+      .find((b) => b.text().trim() === '删除');
+    await deleteButton?.trigger('click');
+    await settle();
+    const modal = wrapper.findComponent(AModal);
+    expect(modal.exists()).toBe(true);
+    expect(modal.text()).toContain('整理需求');
+    await buttonByText(wrapper, '确认删除')?.trigger('click');
+    await settle();
+    expect(deleteTask).toHaveBeenCalledWith('t1');
   });
 
   it('applies the keyword filter after debounce', async () => {
-    const wrapper = mount(App);
-    await flushPromises();
-    await wrapper.find('input[aria-label="关键词搜索"]').setValue('需求');
+    const wrapper = await mountApp();
+    await wrapper.find('input[placeholder="搜索标题或描述…"]').setValue('需求');
     await new Promise((resolve) => setTimeout(resolve, 350));
-    await flushPromises();
+    await settle();
     const lastCall = vi.mocked(fetchTasks).mock.calls.at(-1)?.[0];
     expect(lastCall).toMatchObject({ keyword: '需求' });
   });
 
-  it('shows a retry banner when loading fails', async () => {
+  it('applies the priority filter from the toolbar select', async () => {
+    const wrapper = await mountApp();
+    const toolbarSelects = wrapper.findAllComponents(ASelect).slice(0, 4);
+    toolbarSelects[1]?.vm.$emit('change', 'low');
+    await settle();
+    const lastCall = vi.mocked(fetchTasks).mock.calls.at(-1)?.[0];
+    expect(lastCall).toMatchObject({ priority: 'low' });
+  });
+
+  it('shows a retry alert when loading fails', async () => {
     vi.mocked(fetchStats).mockRejectedValue(new Error('boom'));
     vi.mocked(fetchTasks).mockRejectedValue(new Error('boom'));
-    const wrapper = mount(App);
-    await flushPromises();
-    const retry = wrapper.find('.banner .banner-btn');
-    expect(wrapper.find('.banner').exists()).toBe(true);
-    expect(retry.text()).toContain('重试');
+    const wrapper = mountWithArco(App);
+    await settle();
+    expect(wrapper.find('.arco-alert-error').exists()).toBe(true);
+    const retry = buttonByText(wrapper, '重试');
+    expect(retry?.text()).toContain('重试');
 
-    // 恢复后点击重试可成功加载
     vi.mocked(fetchTasks).mockResolvedValue({ items: [buildTask()], total: 1 });
     vi.mocked(fetchStats).mockResolvedValue(stats());
-    await retry.trigger('click');
-    await flushPromises();
-    expect(wrapper.find('.banner').exists()).toBe(false);
+    await retry?.trigger('click');
+    await settle();
+    expect(wrapper.find('.arco-alert-error').exists()).toBe(false);
   });
 
   it('toggles the filtered-empty state via 清除筛选', async () => {
-    const wrapper = mount(App);
-    await flushPromises();
-    await wrapper.find('select[aria-label="优先级筛选"]').setValue('low');
+    const wrapper = await mountApp();
+    const toolbarSelects = wrapper.findAllComponents(ASelect).slice(0, 4);
+    toolbarSelects[1]?.vm.$emit('change', 'low');
     vi.mocked(fetchTasks).mockResolvedValue({ items: [], total: 0 });
     await new Promise((resolve) => setTimeout(resolve, 350));
-    await flushPromises();
-    expect(wrapper.find('.board-empty-title').text()).toBe('没有匹配的任务');
-    await wrapper.find('.board-empty .btn-ghost').trigger('click');
-    await flushPromises();
+    await settle();
+    expect(wrapper.text()).toContain('没有匹配的任务');
+    await wrapper.find('[data-action="clear-filters"]').trigger('click');
+    await settle();
     const lastCall = vi.mocked(fetchTasks).mock.calls.at(-1)?.[0];
     expect(lastCall).toEqual({
       keyword: '',

@@ -1,41 +1,51 @@
 /**
- * 全局样式：设计令牌 + 极少量全局工具类。
- * 组件自身的样式写在各组件的 <style scoped> 中。
+ * 全局样式：基于 Arco Design 变量的应用层令牌（间距/圆角/布局），仅极少全局重置。
+ * Arco 默认主题本身就是需求色板（arcoblue-6 = #165DFF 等），这里不覆盖 arco 变量。
  */
-:root {
-  /* 主色与状态色 */
-  --color-primary: #165DFF;
-  --color-primary-hover: #0E42D2;
-  --color-primary-active: #072CA6;
-  --color-primary-soft: #E8F3FF;
+/* 注意：Arco 将其 CSS 变量挂在 body 上（默认 arco-theme-tag = body），
+   因此引用 arco 变量的应用层令牌也必须声明在 body 上，
+   否则在 :root 处 var() 无法解析，卡片/边框/文字色会全部失效。 */
+body {
+  /* 8px 基准间距 */
+  --app-space-1: 4px;
+  --app-space-2: 8px;
+  --app-space-3: 12px;
+  --app-space-4: 16px;
+  --app-space-5: 24px;
+  --app-space-6: 32px;
+  --app-space-7: 48px;
 
-  --color-page: #FFFFFF;
-  --color-surface: #FFFFFF;
-  --color-surface-muted: #F7F8FA;
+  /* 统一圆角：卡片/列 8px，控件取 arco 默认（2/4px） */
+  --app-radius: 8px;
+  --app-max-width: 1440px;
 
-  --color-border: #E5E6EB;
-  --color-border-strong: #C9CDD4;
+  /* 语义别名（全部指向 arco 原生变量 / 调色板 rgb 三元组） */
+  --app-card-bg: var(--color-bg-2);
+  --app-card-border: var(--color-border-2);
+  --app-border-strong: var(--color-border-3);
+  --app-muted-bg: var(--color-fill-1);
+  --app-muted-bg-strong: var(--color-fill-2);
 
-  --color-text: #1D2129;
-  --color-text-secondary: #4E5969;
-  --color-text-muted: #86909C;
+  --app-text-1: var(--color-text-1);
+  --app-text-2: var(--color-text-2);
+  --app-text-3: var(--color-text-3);
 
-  --color-danger: #F53F3F;
-  --color-danger-hover: #CB2634;
-  --color-danger-soft: #FFECE8;
-  --color-warning: #FF7D00;
-  --color-warning-soft: #FFF7E8;
-  --color-success: #00B42A;
-  --color-success-soft: #E8FFEA;
+  --app-primary: rgb(var(--primary-6));
+  --app-primary-hover: rgb(var(--primary-7));
+  --app-primary-active: rgb(var(--primary-8));
+  --app-primary-soft: rgb(var(--primary-1));
+  --app-primary-light: var(--color-primary-light-1);
+  --app-danger: rgb(var(--danger-6));
+  --app-danger-hover: rgb(var(--danger-7));
+  --app-danger-soft: rgb(var(--danger-1));
+  --app-warning: rgb(var(--warning-6));
+  --app-warning-soft: rgb(var(--warning-1));
+  --app-success: rgb(var(--success-6));
+  --app-success-soft: rgb(var(--success-1));
 
-  /* 圆角与阴影（仅轻量投影） */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
   --shadow-sm: 0 1px 2px rgba(15, 22, 36, 0.06);
   --shadow-md: 0 8px 20px rgba(15, 22, 36, 0.1);
-
-  --font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, 'Segoe UI',
+  --app-font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, 'Segoe UI',
     Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
@@ -52,9 +62,9 @@ body {
 }
 
 body {
-  background: var(--color-page);
-  color: var(--color-text);
-  font-family: var(--font-family);
+  background: var(--color-bg-1);
+  color: var(--app-text-1);
+  font-family: var(--app-font-family);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -71,47 +81,4 @@ ul {
 ul {
   padding: 0;
   list-style: none;
-}
-
-button {
-  font: inherit;
-  color: inherit;
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
-}
-
-input,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
-
-:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-}
-
-/* 骨架占位（使用透明度脉冲，不引入重渐变） */
-.skeleton {
-  display: block;
-  background: var(--color-surface-muted);
-  border-radius: var(--radius-sm);
-  animation: skeleton-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
 }
