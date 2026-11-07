@@ -1,9 +1,26 @@
-import { basename, dirname, resolve } from 'node:path'
+import { accessSync, constants as fsConstants } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TaskRepository } from './repository.js'
 
 const appDir = dirname(fileURLToPath(import.meta.url))
-const serverRoot = basename(appDir) === 'dist' ? resolve(appDir, '..') : appDir
+
+/** 从任意运行位置（tsx 直跑 src 或编译后的 dist）向上找到 apps/server 包根。 */
+function findPackageRoot(startDir: string): string {
+  let dir = resolve(startDir)
+  for (;;) {
+    try {
+      accessSync(join(dir, 'package.json'), fsConstants.F_OK)
+      return dir
+    } catch {
+      const parent = dirname(dir)
+      if (parent === dir) return startDir
+      dir = parent
+    }
+  }
+}
+
+const serverRoot = findPackageRoot(appDir)
 
 /**
  * 可选演示数据初始化命令：向真实数据库写入示例任务（幂等：已有任务时跳过）。

@@ -1,4 +1,4 @@
-import { basename, dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { accessSync, constants as fsConstants } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { buildApp } from './app.js'
@@ -6,8 +6,23 @@ import { openDatabase } from './db/database.js'
 
 // 以本模块所在位置为准（编译到 dist/ 下运行同样成立），避免依赖进程 cwd
 const appDir = dirname(fileURLToPath(import.meta.url)) // src（dev）或 dist（prod）
-// src 与 dist 相对包根的层级不同，据此推导包根目录（apps/web 与 apps/server 同级）
-const serverRoot = basename(appDir) === 'dist' ? resolve(appDir, '..') : appDir
+const serverRoot = findPackageRoot(appDir)
+
+
+/** 从任意运行位置（tsx 直跑 src 或编译后的 dist）向上找到 apps/server 包根。 */
+function findPackageRoot(startDir: string): string {
+  let dir = resolve(startDir)
+  while (true) {
+    try {
+      accessSync(join(dir, 'package.json'), fsConstants.F_OK)
+      return dir
+    } catch {
+      const parent = dirname(dir)
+      if (parent === dir) return startDir
+      dir = parent
+    }
+  }
+}
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10)
 const HOST = process.env.HOST ?? '127.0.0.1'
