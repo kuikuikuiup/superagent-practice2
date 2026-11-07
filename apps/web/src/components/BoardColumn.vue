@@ -83,8 +83,8 @@ function onDrop(event: DragEvent): void {
   display: flex;
   flex-direction: column;
   gap: var(--app-space-3);
-  min-height: 240px;
-  padding: var(--app-space-3);
+  min-height: 280px;
+  padding: var(--app-space-4);
   background: var(--app-muted-bg);
   border: 1px solid var(--app-card-border);
   border-radius: var(--app-radius);
@@ -94,6 +94,7 @@ function onDrop(event: DragEvent): void {
 .column--dragover {
   border-color: var(--app-primary);
   background: var(--app-primary-light);
+  box-shadow: var(--shadow-sm);
 }
 
 .column-header {
@@ -122,9 +123,10 @@ function onDrop(event: DragEvent): void {
 }
 
 .column-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--app-text-1);
+  letter-spacing: 0.02em;
 }
 
 /* arco Badge 计数，弱化为中性灰（避免每列一串红色徽标喧宾夺主） */
@@ -137,7 +139,7 @@ function onDrop(event: DragEvent): void {
 .column-list {
   display: flex;
   flex-direction: column;
-  gap: var(--app-space-2);
+  gap: var(--app-space-3);
   min-height: 96px;
 }
 

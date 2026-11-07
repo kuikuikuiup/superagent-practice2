@@ -17,7 +17,10 @@ body {
 
   /* 统一圆角：卡片/列 8px，控件取 arco 默认（2/4px） */
   --app-radius: 8px;
-  --app-max-width: 1440px;
+  /* 内容容器：三列看板需要足够列宽，1440–1600 区间内取 1600，
+     保证 1920px 宽屏下每列约 500px，又不至于无界拉伸。 */
+  --app-max-width: 1600px;
+  --app-page-pad-x: var(--app-space-6);
 
   /* 语义别名（全部指向 arco 原生变量 / 调色板 rgb 三元组） */
   --app-card-bg: var(--color-bg-2);
@@ -47,6 +50,13 @@ body {
   --shadow-md: 0 8px 20px rgba(15, 22, 36, 0.1);
   --app-font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, 'Segoe UI',
     Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 宽屏（≥1440）侧边留白更大，行间呼吸感也随列宽增加 */
+@media (min-width: 1440px) {
+  body {
+    --app-page-pad-x: 40px;
+  }
 }
 
 *,

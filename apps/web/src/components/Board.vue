@@ -106,6 +106,12 @@ function onDropStatus(status: TaskStatus, event: DragEvent): void {
   align-items: start;
 }
 
+@media (min-width: 1440px) {
+  .board-grid {
+    gap: var(--app-space-5);
+  }
+}
+
 .skeleton-column {
   display: flex;
   flex-direction: column;

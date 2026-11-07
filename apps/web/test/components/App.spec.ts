@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Modal as AModal, Popconfirm as APopconfirm, Select as ASelect } from '@arco-design/web-vue';
+import { Select as ASelect } from '@arco-design/web-vue';
 import { flushPromises } from '@vue/test-utils';
 import { nextTick } from 'vue';
 
@@ -44,8 +44,11 @@ async function settle() {
   await flushPromises();
 }
 
-async function mountApp() {
-  const wrapper = mountWithArco(App);
+async function mountApp(options: { teleportReal?: boolean } = {}) {
+  const wrapper = mountWithArco(
+    App,
+    options.teleportReal ? { attachTo: document.body, global: { stubs: { teleport: false } } } : {},
+  );
   await settle();
   return wrapper;
 }
@@ -92,16 +95,26 @@ describe('App', () => {
     expect(wrapper.find('#task-title').exists()).toBe(false);
   });
 
-  it('deletes a task after the card Popconfirm → Modal confirmation', async () => {
-    const wrapper = await mountApp();
-    wrapper.getComponent(APopconfirm).vm.$emit('ok');
+  it('deletes a task after the card menu → Modal confirmation', async () => {
+    const wrapper = await mountApp({ teleportReal: true });
+    // “删除”收纳在卡片的更多操作菜单内（Teleport 到 body），
+    // 点击菜单项后由 App 层删除 Modal 再次确认
+    await wrapper.find('button[aria-label="更多操作"]').trigger('click');
+    await nextTick();
+    const deleteOption = document.querySelector<HTMLElement>('.card-more-danger');
+    expect(deleteOption).not.toBeNull();
+    deleteOption!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await settle();
-    expect(wrapper.getComponent(AModal).text()).toContain('确认删除');
-    await buttonByText(wrapper, '确认删除')?.trigger('click');
+    // teleport: false 下确认 Modal 同样传送至 body
+    const confirmModal = document.querySelector<HTMLElement>('.arco-modal');
+    expect(confirmModal?.textContent).toContain('确认删除');
+    const confirmButton = document.querySelector<HTMLElement>('.arco-modal-footer .arco-btn-primary');
+    expect(confirmButton).not.toBeNull();
+    confirmButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await settle();
     expect(deleteTask).toHaveBeenCalledWith('t1');
     expect(Message.success).toHaveBeenCalledWith('任务已删除');
-    expect(wrapper.findComponent(AModal).exists()).toBe(false);
+    expect(document.querySelector('.arco-modal')).toBeNull();
   });
 
   it('asks for explicit confirmation before deleting from the detail drawer', async () => {
@@ -113,7 +126,7 @@ describe('App', () => {
       .find((b) => b.text().trim() === '删除');
     await deleteButton?.trigger('click');
     await settle();
-    const modal = wrapper.findComponent(AModal);
+    const modal = wrapper.findComponent({ name: 'Modal' });
     expect(modal.exists()).toBe(true);
     expect(modal.text()).toContain('整理需求');
     await buttonByText(wrapper, '确认删除')?.trigger('click');

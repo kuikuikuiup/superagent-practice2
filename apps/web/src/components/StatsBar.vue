@@ -55,11 +55,16 @@ const showSkeleton = computed(() => props.loading && props.stats === null);
 .stat-card {
   display: flex;
   flex-direction: column;
-  gap: var(--app-space-1);
-  padding: var(--app-space-4);
+  gap: var(--app-space-2);
+  padding: var(--app-space-4) var(--app-space-5);
   background: var(--app-card-bg);
   border: 1px solid var(--app-card-border);
   border-radius: var(--app-radius);
+  transition: border-color 0.15s ease;
+}
+
+.stat-card:hover {
+  border-color: var(--app-border-strong);
 }
 
 .stat-label {
@@ -68,15 +73,16 @@ const showSkeleton = computed(() => props.loading && props.stats === null);
 }
 
 .stat-value {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 600;
   line-height: 1.2;
   color: var(--app-text-1);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-value-shape {
-  width: 56px;
-  height: 28px;
+  width: 64px;
+  height: 34px;
 }
 
 .value--primary {
@@ -97,13 +103,23 @@ const showSkeleton = computed(() => props.loading && props.stats === null);
   }
 }
 
+@media (min-width: 1500px) {
+  .stats-bar {
+    gap: var(--app-space-4);
+  }
+}
+
 @media (max-width: 575.98px) {
   .stats-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .stat-card {
+    padding: var(--app-space-3) var(--app-space-4);
+  }
+
   .stat-value {
-    font-size: 20px;
+    font-size: 22px;
   }
 }
 </style>

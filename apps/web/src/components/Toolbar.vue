@@ -155,7 +155,7 @@ const canClear = computed(() => {
 }
 
 .toolbar-search {
-  width: 260px;
+  width: 300px;
   max-width: 100%;
 }
 
@@ -177,6 +177,16 @@ const canClear = computed(() => {
 
 .toolbar-clear {
   color: var(--app-text-3);
+}
+
+@media (min-width: 1440px) {
+  .toolbar-group {
+    gap: var(--app-space-3);
+  }
+
+  .toolbar-search {
+    width: 360px;
+  }
 }
 
 @media (max-width: 575.98px) {

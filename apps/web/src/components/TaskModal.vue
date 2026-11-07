@@ -20,6 +20,9 @@ const emit = defineEmits<{
   (e: 'close'): void;
 }>();
 
+// 桌面端 640px 表单宽度；窄视口退化为视口内边距宽度
+const modalWidth = typeof window !== 'undefined' && window.innerWidth <= 576 ? '96%' : 640;
+
 const form = reactive(createFormValues(props.task));
 const formRef = ref<FormInstance | null>(null);
 /** 服务端 VALIDATION_ERROR 字段级错误：随 FormItem validate-status 一并展示 */
@@ -98,8 +101,10 @@ watch(
 <template>
   <a-modal
     :visible="true"
-    :width="560"
+    :width="modalWidth"
     :title="props.mode === 'create' ? '新建任务' : '编辑任务'"
+    title-align="start"
+    modal-class="task-modal"
     :mask-closable="true"
     @cancel="emit('close')"
     @close="emit('close')"
@@ -130,7 +135,7 @@ watch(
         :validate-status="serverErrors['description'] ? 'error' : undefined"
         :rules="descriptionRules"
       >
-        <a-textarea v-model="form.description" :input-attrs="{ id: 'task-description' }" placeholder="补充说明、验收标准、链接等（可选）" :auto-size="{ minRows: 4, maxRows: 10 }" />
+        <a-textarea v-model="form.description" :textarea-attrs="{ id: 'task-description' }" placeholder="补充说明、验收标准、链接等（可选）" :auto-size="{ minRows: 4, maxRows: 10 }" />
         <p v-if="serverErrors['description']" class="task-modal-server-error" role="alert">{{ serverErrors['description'] }}</p>
         <template #extra>
           <span class="task-modal-counter">{{ descriptionLength }}/{{ DESCRIPTION_MAX_LENGTH }}</span>
@@ -186,6 +191,7 @@ watch(
 </template>
 
 <style scoped>
+/* 任务标题为第一信息层级 */
 .task-modal-banner {
   margin-bottom: var(--app-space-4);
 }
@@ -205,7 +211,7 @@ watch(
 .task-modal-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--app-space-3);
+  gap: var(--app-space-4);
 }
 
 .task-modal-row :deep(.arco-date-picker),
@@ -216,6 +222,29 @@ watch(
 @media (max-width: 479.98px) {
   .task-modal-row {
     grid-template-columns: 1fr;
+    gap: 0;
   }
+}
+</style>
+
+<style>
+/* Modal 也经 Teleport 渲染，宽度/内边距的视口适配放到 modal-class 上 */
+.task-modal .arco-modal-header {
+  padding: 20px 24px 12px;
+  border-bottom: none;
+  background: none;
+}
+
+.task-modal .arco-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.task-modal .arco-modal-body {
+  padding: 8px 24px 0;
+}
+
+.task-modal .arco-modal-footer {
+  padding: 16px 24px 20px;
 }
 </style>

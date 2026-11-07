@@ -16,13 +16,16 @@ const emit = defineEmits<{
 }>();
 
 const due = computed(() => classifyDue(props.task.dueDate, props.task.status));
-const description = computed(() => (props.task.description.trim() === '' ? '（暂无描述）' : props.task.description));
+const description = computed(() => props.task.description);
+
+// 窄视口满宽抽屉，桌面端 480px 保证长标题/描述可读
+const drawerWidth = typeof window !== 'undefined' && window.innerWidth <= 576 ? '100%' : 480;
 </script>
 
 <template>
   <a-drawer
     :visible="true"
-    :width="420"
+    :width="drawerWidth"
     :footer="true"
     unmount-on-close
     @cancel="emit('close')"
@@ -48,37 +51,44 @@ const description = computed(() => (props.task.description.trim() === '' ? '（�
         </a-tag>
       </div>
 
-      <div class="drawer-list">
+      <section class="drawer-section">
+        <h3 class="drawer-section-title">时间信息</h3>
         <div class="drawer-field">
           <span class="drawer-label">截止日期</span>
-          <span v-if="props.task.dueDate" class="drawer-value" :class="`due--${due.kind}`">
+          <span v-if="props.task.dueDate" class="drawer-value drawer-priority-value" :class="`due--${due.kind}`">
             {{ props.task.dueDate }}
             <em v-if="due.kind === 'soon'" class="due-note">（临近截止）</em>
           </span>
-          <span v-else class="drawer-value">—（未设置）</span>
+          <span v-else class="drawer-value drawer-value-empty">未设置截止日期</span>
         </div>
-        <div class="drawer-field">
-          <span class="drawer-label">创建时间</span>
-          <span class="drawer-value">{{ formatDateTime(props.task.createdAt) }}</span>
+        <div class="drawer-field-row">
+          <div class="drawer-field">
+            <span class="drawer-label">创建时间</span>
+            <span class="drawer-value">{{ formatDateTime(props.task.createdAt) }}</span>
+          </div>
+          <div class="drawer-field">
+            <span class="drawer-label">更新时间</span>
+            <span class="drawer-value">{{ formatDateTime(props.task.updatedAt) }}</span>
+          </div>
         </div>
-        <div class="drawer-field">
-          <span class="drawer-label">更新时间</span>
-          <span class="drawer-value">{{ formatDateTime(props.task.updatedAt) }}</span>
+      </section>
+
+      <section class="drawer-section">
+        <h3 class="drawer-section-title">描述</h3>
+        <p v-if="description.trim() !== ''" class="drawer-desc">{{ description }}</p>
+        <div v-else class="drawer-desc-empty">
+          <span>暂无描述，可在编辑中补充说明、验收标准等。</span>
         </div>
-        <div class="drawer-field">
-          <span class="drawer-label">描述</span>
-          <p class="drawer-value drawer-desc">{{ description }}</p>
-        </div>
-      </div>
+      </section>
     </div>
 
     <template #footer>
       <div class="drawer-footer">
-        <a-button type="primary" @click="emit('edit', props.task)">
+        <a-button type="primary" class="drawer-footer-edit" @click="emit('edit', props.task)">
           <template #icon><icon-edit /></template>
           编辑
         </a-button>
-        <a-button status="danger" @click="emit('delete', props.task)">
+        <a-button status="danger" class="drawer-footer-delete" @click="emit('delete', props.task)">
           <template #icon><icon-delete /></template>
           删除
         </a-button>
@@ -89,7 +99,7 @@ const description = computed(() => (props.task.description.trim() === '' ? '（�
 
 <style scoped>
 .drawer-kicker {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--app-text-3);
   letter-spacing: 1px;
 }
@@ -97,13 +107,13 @@ const description = computed(() => (props.task.description.trim() === '' ? '（�
 .drawer-body-inner {
   display: flex;
   flex-direction: column;
-  gap: var(--app-space-2);
+  gap: var(--app-space-3);
 }
 
 .drawer-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--app-text-1);
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -135,19 +145,33 @@ const description = computed(() => (props.task.description.trim() === '' ? '（�
   background-color: var(--app-success-soft);
 }
 
-.drawer-list {
+.drawer-section {
   display: flex;
   flex-direction: column;
   gap: var(--app-space-3);
-  margin-top: var(--app-space-4);
+  margin-top: var(--app-space-2);
   border-top: 1px solid var(--app-card-border);
   padding-top: var(--app-space-4);
+}
+
+.drawer-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text-3);
+  letter-spacing: 0.02em;
 }
 
 .drawer-field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.drawer-field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--app-space-4);
 }
 
 .drawer-label {
@@ -156,13 +180,27 @@ const description = computed(() => (props.task.description.trim() === '' ? '（�
 }
 
 .drawer-value {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--app-text-1);
   white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.drawer-priority-value {
+  font-weight: 500;
+}
+
+.drawer-value-empty {
+  color: var(--app-text-3);
 }
 
 .due-note {
+  margin-left: 2px;
   font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
   color: var(--app-warning);
 }
 
@@ -175,15 +213,43 @@ const description = computed(() => (props.task.description.trim() === '' ? '（�
 }
 
 .drawer-desc {
-  white-space: pre-wrap;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.6;
   color: var(--app-text-2);
+  white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
+}
+
+.drawer-desc-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-3) var(--app-space-4);
+  font-size: 13px;
+  color: var(--app-text-3);
+  background: var(--app-muted-bg);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: var(--app-radius);
 }
 
 .drawer-footer {
   display: flex;
   gap: var(--app-space-2);
+}
+
+.drawer-footer-edit {
+  flex: 1;
+}
+
+.drawer-footer-delete {
+  flex-shrink: 0;
+  color: var(--app-danger);
+}
+
+@media (max-width: 575.98px) {
+  .drawer-field-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

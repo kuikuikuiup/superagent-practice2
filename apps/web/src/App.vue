@@ -237,7 +237,7 @@ async function confirmDelete(): Promise<void> {
 .app {
   max-width: var(--app-max-width);
   margin: 0 auto;
-  padding: var(--app-space-5) var(--app-space-6) var(--app-space-7);
+  padding: var(--app-space-5) var(--app-page-pad-x) var(--app-space-7);
 }
 
 .app-header {
@@ -251,22 +251,23 @@ async function confirmDelete(): Promise<void> {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
   color: var(--color-bg-white);
   background: var(--app-primary);
   border-radius: var(--app-radius);
 }
 
 .app-heading h1 {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
   line-height: 1.3;
   color: var(--app-text-1);
 }
 
 .app-heading p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--app-text-3);
 }
 
@@ -298,6 +299,12 @@ async function confirmDelete(): Promise<void> {
 @media (max-width: 575.98px) {
   .app {
     padding: var(--app-space-4) var(--app-space-3) var(--app-space-6);
+  }
+
+  .app-logo {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
   }
 
   .app-header {
