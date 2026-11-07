@@ -1,0 +1,16 @@
+{
+  "name": "task-kanban",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @kanban/server --filter @kanban/web run dev",
+    "build": "pnpm --filter @kanban/web run build && pnpm --filter @kanban/server run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
+    "seed": "pnpm --filter @kanban/server run db:seed"
+  }
+}

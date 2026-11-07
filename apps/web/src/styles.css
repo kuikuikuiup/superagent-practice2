@@ -1,0 +1,117 @@
+/**
+ * 全局样式：设计令牌 + 极少量全局工具类。
+ * 组件自身的样式写在各组件的 <style scoped> 中。
+ */
+:root {
+  /* 主色与状态色 */
+  --color-primary: #165DFF;
+  --color-primary-hover: #0E42D2;
+  --color-primary-active: #072CA6;
+  --color-primary-soft: #E8F3FF;
+
+  --color-page: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F7F8FA;
+
+  --color-border: #E5E6EB;
+  --color-border-strong: #C9CDD4;
+
+  --color-text: #1D2129;
+  --color-text-secondary: #4E5969;
+  --color-text-muted: #86909C;
+
+  --color-danger: #F53F3F;
+  --color-danger-hover: #CB2634;
+  --color-danger-soft: #FFECE8;
+  --color-warning: #FF7D00;
+  --color-warning-soft: #FFF7E8;
+  --color-success: #00B42A;
+  --color-success-soft: #E8FFEA;
+
+  /* 圆角与阴影（仅轻量投影） */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 22, 36, 0.06);
+  --shadow-md: 0 8px 20px rgba(15, 22, 36, 0.1);
+
+  --font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p,
+ul {
+  margin: 0;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* 骨架占位（使用透明度脉冲，不引入重渐变） */
+.skeleton {
+  display: block;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
