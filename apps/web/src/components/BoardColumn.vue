@@ -57,7 +57,7 @@ function onDrop(event: DragEvent): void {
       <a-badge class="column-badge" :count="props.tasks.length" :max-count="99" />
     </header>
 
-    <ul class="column-list">
+    <ul class="column-list" :class="{ 'column-list--empty': props.tasks.length === 0 }">
       <li v-for="task in props.tasks" :key="task.id" class="column-item">
         <TaskCard
           :task="task"
@@ -141,6 +141,11 @@ function onDrop(event: DragEvent): void {
   flex-direction: column;
   gap: var(--app-space-3);
   min-height: 96px;
+}
+
+/* 空列不留标题与空态之间的空白占位 */
+.column-list--empty {
+  min-height: 0;
 }
 
 .column-item {
