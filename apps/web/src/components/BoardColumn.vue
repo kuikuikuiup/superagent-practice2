@@ -43,7 +43,7 @@ function onDrop(event: DragEvent): void {
 <template>
   <section
     class="column"
-    :class="{ 'column--dragover': draggingOver }"
+    :class="{ 'column--dragover': draggingOver, 'column--empty': props.tasks.length === 0 }"
     :data-column="columnKey"
     :aria-label="props.title"
     @dragover="onDragOver"
@@ -89,6 +89,12 @@ function onDrop(event: DragEvent): void {
   border: 1px solid var(--app-card-border);
   border-radius: var(--app-radius);
   transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+/* 高度由网格行高（视口剩余空间）决定：任务多时列内滚动 */
+.column {
+  height: 100%;
+  min-height: 280px;
 }
 
 .column--dragover {
@@ -137,32 +143,58 @@ function onDrop(event: DragEvent): void {
 }
 
 .column-list {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--app-space-3);
-  min-height: 96px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
-/* 空列不留标题与空态之间的空白占位 */
+.column-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.column-list::-webkit-scrollbar-thumb {
+  background: var(--app-muted-bg-strong);
+  border-radius: 3px;
+}
+
+.column-list::-webkit-scrollbar-thumb:hover {
+  background: var(--app-border-strong);
+}
+
 .column-list--empty {
+  flex: none;
   min-height: 0;
+  overflow: hidden;
+}
+
+/* 移动端单列布局：列高自适应视口剩余空间，任务多时列内滚动 */
+@media (max-width: 991.98px) {
+  .column-list {
+    max-height: 68vh;
+  }
 }
 
 .column-item {
   display: block;
 }
 
+/* 空列去外框：空态在剩余列高内上下居中 */
+.column--empty {
+  min-height: 240px;
+}
+
 .column-empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--app-space-2);
-  min-height: 128px;
-  border: 1px dashed var(--app-border-strong);
-  border-radius: var(--app-radius);
-  padding: var(--app-space-4) 0;
-  background: transparent;
+  padding: var(--app-space-3) 0;
 }
 
 .column-empty-icon {

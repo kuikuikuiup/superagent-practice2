@@ -235,9 +235,28 @@ async function confirmDelete(): Promise<void> {
 
 <style scoped>
 .app {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
+  /* 视口高度基线：看板吃掉剩余高度、列内滚动，而不是整页滚动。
+     移动端回退到自然文档流（列内滚动上限由列样式控制）。 */
+  height: 100vh;
+  min-height: 640px;
   max-width: var(--app-max-width);
   margin: 0 auto;
-  padding: var(--app-space-5) var(--app-page-pad-x) var(--app-space-7);
+  padding: var(--app-space-5) var(--app-page-pad-x) var(--app-space-5);
+  overflow: hidden;
+}
+
+/* 看板占据视口剩余高度：列内滚动而非整页滚动 */
+.app > * {
+  flex-shrink: 0;
+}
+
+.app > :deep(.board) {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .app-header {
