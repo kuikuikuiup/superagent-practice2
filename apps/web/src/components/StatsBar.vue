@@ -19,7 +19,7 @@ const cards = computed<StatCard[]>(() => {
   const s = props.stats;
   return [
     { key: 'total', label: '任务总数', value: s ? s.total : '—', tone: '' },
-    { key: 'todo', label: '待办', value: s ? s.todo : '—', tone: '' },
+    { key: 'todo', label: '待认领', value: s ? s.todo : '—', tone: '' },
     { key: 'inProgress', label: '进行中', value: s ? s.inProgress : '—', tone: 'primary' },
     { key: 'done', label: '已完成', value: s ? s.done : '—', tone: 'success' },
     { key: 'doneRate', label: '完成率', value: s ? formatDoneRate(s.doneRate) : '—', tone: 'primary' },
