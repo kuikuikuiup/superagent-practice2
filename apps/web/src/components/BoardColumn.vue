@@ -69,12 +69,12 @@ function onDrop(event: DragEvent): void {
       </li>
     </ul>
 
-    <a-empty
-      v-if="props.tasks.length === 0"
-      class="column-empty"
-      size="small"
-      :description="props.emptyText"
-    />
+    <div v-if="props.tasks.length === 0" class="column-empty">
+      <span class="column-empty-icon">
+        <icon-empty />
+      </span>
+      <p class="column-empty-text">{{ props.emptyText }}</p>
+    </div>
   </section>
 </template>
 
@@ -148,18 +148,32 @@ function onDrop(event: DragEvent): void {
 }
 
 .column-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-space-2);
+  min-height: 128px;
   border: 1px dashed var(--app-border-strong);
   border-radius: var(--app-radius);
-  padding: var(--app-space-3) 0;
+  padding: var(--app-space-4) 0;
   background: transparent;
 }
 
-.column-empty :deep(.arco-empty-image) {
-  display: none;
+.column-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  color: var(--app-text-3);
+  background: var(--app-muted-bg-strong);
+  border-radius: 50%;
 }
 
-.column-empty :deep(.arco-empty-description) {
-  color: var(--app-text-3);
+.column-empty-text {
   font-size: 13px;
+  color: var(--app-text-3);
 }
 </style>
