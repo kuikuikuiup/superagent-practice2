@@ -64,6 +64,16 @@ describe('TaskCard', () => {
     expect(wrapper.emitted('edit')?.length).toBe(1);
   });
 
+  it('emits open when clicking anywhere on the card except controls', async () => {
+    const wrapper = mountWithArco(TaskCard, { props: { task: buildTask() } });
+    await wrapper.find('.card-title').trigger('click');
+    expect(wrapper.emitted('open')?.length).toBe(1);
+    // 状态选择与更多操作区域不触发打开详情
+    await wrapper.find('.card-move').trigger('click');
+    await wrapper.find('button[aria-label="更多操作"]').trigger('click');
+    expect(wrapper.emitted('open')?.length).toBe(1);
+  });
+
   it('renders the low-frequency actions in a single aria-labeled more button', () => {
     const wrapper = mountWithArco(TaskCard, { props: { task: buildTask() } });
     expect(wrapper.find('button[aria-label="更多操作"]').exists()).toBe(true);

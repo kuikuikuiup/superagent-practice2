@@ -45,6 +45,13 @@ function onMove(value: unknown): void {
   emit('move', { id: props.task.id, status });
   selectTick.value += 1;
 }
+
+// 整卡点击打开详情；状态选择、更多操作菜单等控件区域不触发
+function onCardClick(event: MouseEvent): void {
+  const target = event.target instanceof Element ? event.target : null;
+  if (target && target.closest('.card-move, .card-more')) return;
+  emit('open', props.task);
+}
 </script>
 
 <template>
@@ -54,13 +61,14 @@ function onMove(value: unknown): void {
     draggable="true"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
+    @click="onCardClick"
   >
     <div class="card-head">
       <button
         type="button"
         class="card-title"
         :title="props.task.title"
-        @click="emit('open', props.task)"
+        aria-label="查看任务详情"
       >
         {{ props.task.title }}
       </button>
@@ -100,8 +108,7 @@ function onMove(value: unknown): void {
         <a-select
           :key="selectTick"
           class="card-move-select"
-          size="mini"
-          :bordered="false"
+          size="small"
           :model-value="props.task.status"
           aria-label="移至其他状态"
           @change="onMove"
@@ -117,6 +124,7 @@ function onMove(value: unknown): void {
 
 <style scoped>
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--app-space-2);
@@ -124,7 +132,7 @@ function onMove(value: unknown): void {
   background: var(--app-card-bg);
   border: 1px solid var(--app-card-border);
   border-radius: var(--app-radius);
-  cursor: grab;
+  cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
@@ -132,6 +140,10 @@ function onMove(value: unknown): void {
 .card:focus-within {
   border-color: var(--app-primary);
   box-shadow: var(--shadow-sm);
+}
+
+.card:hover .card-title {
+  color: var(--app-primary);
 }
 
 .card:active {
@@ -255,31 +267,33 @@ function onMove(value: unknown): void {
   margin-left: auto;
   flex-shrink: 0;
   min-width: 0;
+  cursor: pointer;
 }
 
 .card-move-label {
   font-size: 12px;
-  color: var(--app-text-3);
+  color: var(--app-text-2);
   white-space: nowrap;
 }
 
 .card-move-select {
-  min-width: 76px;
-  max-width: 108px;
+  min-width: 92px;
+  max-width: 128px;
   flex-shrink: 1;
 }
 
 .card-move-select :deep(.arco-select-view-value) {
-  font-size: 12px;
+  font-size: 13px;
+  color: var(--app-text-1);
 }
 </style>
 
 <style>
-/* arco Select / Dropdown 均为多根组件，
+/* arco Select 均为多根组件，
    覆盖其根节点或传送后节点的样式必须使用全局选择器（类名仍为本组件独有）。 */
 .card-move .arco-select.card-move-select {
-  min-width: 76px;
-  max-width: 108px;
+  min-width: 92px;
+  max-width: 128px;
 }
 
 /* 更多操作菜单里的“删除”使用危险口径（Dropdown 内容项传送至 body，须全局选择器） */
