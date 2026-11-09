@@ -5,6 +5,8 @@ import { flushPromises } from '@vue/test-utils';
 import { nextTick } from 'vue';
 
 vi.mock('../../src/api/tasks', () => ({
+  TREND_DAYS: 14,
+  fetchStatsTrend: vi.fn(),
   fetchTasks: vi.fn(),
   fetchStats: vi.fn(),
   createTask: vi.fn(),
@@ -12,7 +14,7 @@ vi.mock('../../src/api/tasks', () => ({
   deleteTask: vi.fn(),
 }));
 
-import { createTask, deleteTask, fetchStats, fetchTasks } from '../../src/api/tasks';
+import { createTask, deleteTask, fetchStats, fetchStatsTrend, fetchTasks } from '../../src/api/tasks';
 import { Message } from '@arco-design/web-vue';
 import { mountWithArco } from '../helpers/arco';
 import App from '../../src/App.vue';
@@ -34,6 +36,16 @@ function buildTask(overrides: Partial<Task> = {}): Task {
 
 function stats() {
   return { total: 1, todo: 1, inProgress: 0, done: 0, doneRate: 0, overdue: 0 };
+}
+
+/** 14 个点全部落在 7 天前，保证「近 7 天 / 前 7 天」环比都为 0，隐藏趋势条。 */
+function trend() {
+  const points = Array.from({ length: 14 }, (_, index) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (14 - index));
+    return { date: d.toISOString().slice(0, 10), created: 0 };
+  });
+  return { days: 14, points };
 }
 
 async function settle() {
@@ -60,6 +72,7 @@ function buttonByText(wrapper: Awaited<ReturnType<typeof mountApp>>, text: strin
 beforeEach(() => {
   vi.mocked(fetchTasks).mockResolvedValue({ items: [buildTask()], total: 1 });
   vi.mocked(fetchStats).mockResolvedValue(stats());
+  vi.mocked(fetchStatsTrend).mockResolvedValue(trend());
   vi.mocked(createTask).mockResolvedValue(buildTask());
   vi.mocked(deleteTask).mockResolvedValue(undefined);
   vi.spyOn(Message, 'success').mockImplementation(() => null as never);

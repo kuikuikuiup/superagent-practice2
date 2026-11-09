@@ -51,6 +51,42 @@ describe('GET /api/stats', () => {
   })
 })
 
+describe('GET /api/stats/trend', () => {
+  it('按本地日期分桶返回最近 N 天的新增任务趋势并补 0', async () => {
+    const ctx = await createTestApp()
+    for (const title of ['t1', 't2']) {
+      await postTask(ctx, { title })
+    }
+    const response = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend?days=3' })
+    expect(response.statusCode).toBe(200)
+    const data = response.json().data as { days: number; points: { date: string; created: number }[] }
+    expect(data.days).toBe(3)
+    expect(data.points).toHaveLength(3)
+    // 全部任务都在刚才创建：三桶之和等于任务数，今天为 2
+    expect(data.points.reduce((sum, p) => sum + p.created, 0)).toBe(2)
+    expect(data.points.at(-1)?.created).toBe(2)
+    // 日期按本地日期升序且最后一天是今天
+    expect(data.points[0].date < data.points[2].date).toBe(true)
+    expect(data.points.at(-1)?.date).toBe(todayLocal())
+    await closeApp(ctx)
+  })
+
+  it('默认返回 14 天，days 非法时返回 VALIDATION_ERROR', async () => {
+    const ctx = await createTestApp()
+    const dflt = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend' })
+    expect(dflt.statusCode).toBe(200)
+    expect(dflt.json().data.days).toBe(14)
+    expect(dflt.json().data.points).toHaveLength(14)
+
+    const bad = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend?days=100' })
+    expect(bad.statusCode).toBe(400)
+    expect(bad.json().error.code).toBe('VALIDATION_ERROR')
+    const frac = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend?days=2.5' })
+    expect(frac.statusCode).toBe(400)
+    await closeApp(ctx)
+  })
+})
+
 describe('健康检查与静态资源契约', () => {
   let ctx: TestContext
   beforeAll(async () => { ctx = await createTestApp() })

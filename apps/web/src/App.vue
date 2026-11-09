@@ -15,6 +15,7 @@ const {
   filters,
   tasks,
   stats,
+  trend,
   loading,
   loadError,
   actionError,
@@ -169,7 +170,7 @@ async function confirmDelete(): Promise<void> {
       <template #icon><icon-exclamation-circle /></template>
     </a-alert>
 
-    <StatsBar :stats="stats" :loading="loading" />
+    <StatsBar :stats="stats" :trend="trend" :loading="loading" />
 
     <Toolbar
       :filters="filters"

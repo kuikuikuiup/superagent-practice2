@@ -6,6 +6,8 @@ import type {
   TaskRow,
   TaskStats,
   TaskStatus,
+  StatsTrend,
+  TrendPoint,
 } from '../types.js'
 import { notFoundError } from '../errors.js'
 
@@ -172,6 +174,35 @@ export class TaskRepository {
       overdue: Number(row.overdue ?? 0),
     }
   }
+  /** 仅取 created_at 原始值（不设 LIMIT），趋势分桶在 JS 内完成，避免 SQL 时区差异。 */
+  listCreatedAt(): string[] {
+    const rows = this.db
+      .prepare('SELECT created_at FROM tasks')
+      .all() as unknown as { created_at: string }[]
+    return rows.map((row) => row.created_at)
+  }
+
+  /**
+   * 最近 days 天（含今天）的新增任务趋势，按 GET /api/stats 同款的服务器本地日期分桶；
+   * 无任务的日期补 0，保证前端折线/柱状图按日连续。
+   */
+  createdAtTrend(days: number): StatsTrend {
+    const points: TrendPoint[] = []
+    for (let offset = days - 1; offset >= 0; offset -= 1) {
+      const d = new Date()
+      d.setDate(d.getDate() - offset)
+      points.push({ date: toLocalDate(d), created: 0 })
+    }
+    const byDate = new Map(points.map((point) => [point.date, point]))
+    for (const createdAt of this.listCreatedAt()) {
+      const parsed = new Date(createdAt)
+      if (Number.isNaN(parsed.getTime())) continue
+      const key = toLocalDate(parsed)
+      const point = byDate.get(key)
+      if (point !== undefined) point.created += 1
+    }
+    return { days, points }
+  }
 }
 
 export function toTask(row: TaskRow): Task {
@@ -192,10 +223,13 @@ function nowIso(): string {
 }
 
 export function todayLocal(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
+  return toLocalDate(new Date())
+}
+
+export function toLocalDate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
 

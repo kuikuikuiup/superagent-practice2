@@ -9,11 +9,12 @@ import {
   IconExclamationCircle,
 } from '@arco-design/web-vue/es/icon';
 import type { Component } from 'vue';
-import type { TaskStats } from '../api/types';
+import type { TaskStats, StatsTrend } from '../api/types';
 import { formatDoneRate } from '../utils/format';
 
 const props = defineProps<{
   stats: TaskStats | null;
+  trend: StatsTrend | null;
   loading: boolean;
 }>();
 
@@ -50,6 +51,34 @@ const cards = computed<StatCard[]>(() => {
 });
 
 const showSkeleton = computed(() => props.loading && props.stats === null);
+
+/** 「任务总数」卡的真实趋势：最近两周按日新增 + 近 7 天相对前 7 天的变化 */
+const totalTrend = computed(() => {
+  const points = props.trend?.points ?? [];
+  if (points.length < 14) return null;
+  const last7 = points.slice(-7).reduce((sum, point) => sum + point.created, 0);
+  const prev7 = points.slice(0, 7).reduce((sum, point) => sum + point.created, 0);
+  if (last7 === 0 && prev7 === 0) return null;
+  return { points, last7, delta: last7 - prev7 };
+});
+
+const trendBars = computed(() => {
+  const trend = totalTrend.value;
+  if (trend === null) return [];
+  const max = Math.max(...trend.points.map((point) => point.created), 1);
+  // 高度 2..20px，最后一天高亮
+  return trend.points.map((point, index) => ({
+    height: point.created === 0 ? 2 : Math.round(2 + (point.created / max) * 18),
+    current: index === trend.points.length - 1,
+  }));
+});
+
+const sparkTitle = computed(() => {
+  const trend = totalTrend.value;
+  if (trend === null) return '';
+  const sum = trend.points.reduce((acc, point) => acc + point.created, 0);
+  return `最近两周逐日新增 ${sum} 个任务`;
+});
 </script>
 
 <template>
@@ -66,7 +95,34 @@ const showSkeleton = computed(() => props.loading && props.stats === null);
         <span v-else class="stat-value" :class="card.tone === 'danger' ? 'value--danger' : ''">
           {{ card.value }}
         </span>
+        <span v-if="card.key === 'total' && totalTrend !== null && !showSkeleton" class="stat-delta">
+          近 7 天
+          <b :class="totalTrend.delta > 0 ? 'delta-up' : ''">
+            {{ totalTrend.delta > 0 ? `+${totalTrend.delta}` : totalTrend.delta }}
+            <icon-caret-up v-if="totalTrend.delta > 0" />
+          </b>
+        </span>
       </div>
+      <svg
+        v-if="card.key === 'total' && trendBars.length > 0"
+        class="stat-spark"
+        viewBox="0 0 70 22"
+        preserveAspectRatio="none"
+        :role="'img'"
+        :aria-label="sparkTitle"
+      >
+        <title>{{ sparkTitle }}</title>
+        <rect
+          v-for="(bar, index) in trendBars"
+          :key="index"
+          :x="index * 5"
+          :y="22 - bar.height"
+          width="3.2"
+          :height="bar.height"
+          rx="1"
+          :class="bar.current ? 'spark-bar spark-bar--current' : 'spark-bar'"
+        />
+      </svg>
     </div>
   </section>
 </template>
@@ -152,6 +208,42 @@ const showSkeleton = computed(() => props.loading && props.stats === null);
 .stat-value-shape {
   width: 64px;
   height: 30px;
+}
+
+/* 「任务总数」卡右侧的逐日新增迷你柱状图 */
+.stat-spark {
+  display: block;
+  width: 72px;
+  height: 26px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.spark-bar {
+  fill: rgb(var(--primary-6));
+  opacity: 0.22;
+}
+
+.spark-bar--current {
+  fill: rgb(var(--primary-6));
+  opacity: 0.9;
+}
+
+/* 近 7 天环比小字：仅在有趋势数据时出现于「任务总数」卡 */
+.stat-delta {
+  font-size: 12px;
+  color: var(--app-text-3);
+  white-space: nowrap;
+}
+
+.stat-delta b {
+  font-weight: 500;
+  color: var(--app-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-delta b.delta-up {
+  color: var(--app-success);
 }
 
 @media (min-width: 1500px) {

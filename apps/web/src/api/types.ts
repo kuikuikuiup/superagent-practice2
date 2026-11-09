@@ -50,6 +50,19 @@ export interface TaskStats {
   overdue: number;
 }
 
+/** 单天新增任务数（服务器本地日期分桶）。 */
+export interface TrendPoint {
+  /** 'YYYY-MM-DD' */
+  date: string;
+  created: number;
+}
+
+/** 最近 N 天（含今天）新增任务趋势。 */
+export interface StatsTrend {
+  days: number;
+  points: TrendPoint[];
+}
+
 export interface FieldError {
   path: string;
   message: string;

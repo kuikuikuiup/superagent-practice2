@@ -4,6 +4,7 @@ import {
   createTask as apiCreateTask,
   deleteTask as apiDeleteTask,
   fetchStats,
+  fetchStatsTrend,
   fetchTasks,
   updateTask as apiUpdateTask,
 } from '../api/tasks';
@@ -17,11 +18,12 @@ import type {
   TaskPriority,
   TaskStats,
   TaskStatus,
+  StatsTrend,
 } from '../api/types';
 
 /**
  * 看板数据同步状态机：后端为唯一数据源。
- * 任何成功变更（创建/编辑/删除/拖拽移动）后重新拉取任务列表与统计。
+ * 任何成功变更（创建/编辑/删除/拖拽移动）后重新拉取任务列表、统计与趋势。
  */
 export function useTasks() {
   const filters = reactive<TaskFilter>(createDefaultFilter());
@@ -29,6 +31,7 @@ export function useTasks() {
   const tasks = ref<Task[]>([]);
   const total = ref(0);
   const stats = ref<TaskStats | null>(null);
+  const trend = ref<StatsTrend | null>(null);
 
   const loading = ref(false);
   const loadError = ref<ApiError | null>(null);
@@ -40,10 +43,11 @@ export function useTasks() {
     loading.value = true;
     loadError.value = null;
     try {
-      const [page, nextStats] = await Promise.all([fetchTasks(filters), fetchStats()]);
+      const [page, nextStats, nextTrend] = await Promise.all([fetchTasks(filters), fetchStats(), fetchStatsTrend()]);
       tasks.value = page.items;
       total.value = page.total;
       stats.value = nextStats;
+      trend.value = nextTrend;
     } catch (error) {
       loadError.value = toApiError(error);
     } finally {
@@ -113,6 +117,7 @@ export function useTasks() {
     tasks,
     total,
     stats,
+    trend,
     loading,
     loadError,
     actionError,
