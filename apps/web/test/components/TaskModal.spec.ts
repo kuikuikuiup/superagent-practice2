@@ -16,6 +16,8 @@ const existing: Task = {
   dueDate: '2026-11-30',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
+  tokens: 0,
+  cost: 0,
 };
 
 async function mountModal(props: Record<string, unknown> = {}) {
@@ -75,6 +77,8 @@ describe('TaskModal', () => {
         status: 'in_progress',
         priority: 'low',
         dueDate: null,
+        tokens: 0,
+        cost: 0,
       },
     ]);
   });

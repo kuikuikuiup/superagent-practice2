@@ -25,6 +25,8 @@ export interface CreateInput {
   status?: TaskStatus
   priority?: TaskPriority
   dueDate?: string | null
+  tokens?: number
+  cost?: number
 }
 
 export type UpdateInput = Partial<CreateInput>
@@ -67,7 +69,7 @@ export class TaskRepository {
     orderTerms.push(`${column} ${direction}`, `id ${direction}`)
 
     const sql = `
-      SELECT id, title, description, status, priority, due_date, created_at, updated_at
+      SELECT id, title, description, status, priority, due_date, tokens, cost, created_at, updated_at
       FROM tasks
       ${where}
       ORDER BY ${orderTerms.join(', ')}
@@ -79,7 +81,7 @@ export class TaskRepository {
 
   getById(id: string): Task {
     const row = this.db
-      .prepare('SELECT id, title, description, status, priority, due_date, created_at, updated_at FROM tasks WHERE id = ?')
+      .prepare('SELECT id, title, description, status, priority, due_date, tokens, cost, created_at, updated_at FROM tasks WHERE id = ?')
       .get(id) as unknown as TaskRow | undefined
 
     if (row === undefined) {
@@ -97,12 +99,14 @@ export class TaskRepository {
       status: input.status ?? 'todo',
       priority: input.priority ?? 'medium',
       due_date: input.dueDate ?? null,
+      tokens: input.tokens ?? 0,
+      cost: roundCost(input.cost ?? 0),
       created_at: now,
       updated_at: now,
     }
     this.db
-      .prepare(`INSERT INTO tasks (id, title, description, status, priority, due_date, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .prepare(`INSERT INTO tasks (id, title, description, status, priority, due_date, tokens, cost, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(
         task.id,
         task.title,
@@ -110,6 +114,8 @@ export class TaskRepository {
         task.status,
         task.priority,
         task.due_date,
+        task.tokens,
+        task.cost,
         task.created_at,
         task.updated_at
       )
@@ -124,13 +130,15 @@ export class TaskRepository {
       status: input.status ?? current.status,
       priority: input.priority ?? current.priority,
       dueDate: input.dueDate === undefined ? current.dueDate : input.dueDate,
+      tokens: input.tokens ?? current.tokens,
+      cost: input.cost === undefined ? current.cost : roundCost(input.cost),
     }
     const updatedAt = nowIso()
     this.db
       .prepare(`UPDATE tasks
-        SET title = ?, description = ?, status = ?, priority = ?, due_date = ?, updated_at = ?
+        SET title = ?, description = ?, status = ?, priority = ?, due_date = ?, tokens = ?, cost = ?, updated_at = ?
         WHERE id = ?`)
-      .run(next.title, next.description, next.status, next.priority, next.dueDate, updatedAt, id)
+      .run(next.title, next.description, next.status, next.priority, next.dueDate, next.tokens, next.cost, updatedAt, id)
 
     return this.getById(id)
   }
@@ -151,7 +159,9 @@ export class TaskRepository {
           SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) AS todo,
           SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS inProgress,
           SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
-          SUM(CASE WHEN due_date IS NOT NULL AND due_date < @today AND status != 'done' THEN 1 ELSE 0 END) AS overdue
+          SUM(CASE WHEN due_date IS NOT NULL AND due_date < @today AND status != 'done' THEN 1 ELSE 0 END) AS overdue,
+          SUM(tokens) AS tokens,
+          SUM(cost) AS cost
         FROM tasks
       `)
       .get({ today }) as unknown as {
@@ -160,6 +170,8 @@ export class TaskRepository {
       inProgress: number | null
       done: number | null
       overdue: number | null
+      tokens: number | null
+      cost: number | null
     }
 
     const total = Number(row.total ?? 0)
@@ -172,35 +184,40 @@ export class TaskRepository {
       done,
       doneRate,
       overdue: Number(row.overdue ?? 0),
+      tokens: Number(row.tokens ?? 0),
+      cost: roundCost(Number(row.cost ?? 0)),
     }
   }
-  /** 仅取 created_at 原始值（不设 LIMIT），趋势分桶在 JS 内完成，避免 SQL 时区差异。 */
-  listCreatedAt(): string[] {
+  /** 仅取原始值（不设 LIMIT），趋势分桶在 JS 内完成，避免 SQL 时区差异。 */
+  listTasksForTrend(): Array<{ created_at: string; tokens: number; cost: number }> {
     const rows = this.db
-      .prepare('SELECT created_at FROM tasks')
-      .all() as unknown as { created_at: string }[]
-    return rows.map((row) => row.created_at)
+      .prepare('SELECT created_at, tokens, cost FROM tasks')
+      .all() as unknown as Array<{ created_at: string; tokens: number; cost: number }>
+    return rows
   }
 
   /**
-   * 最近 days 天（含今天）的新增任务趋势，按 GET /api/stats 同款的服务器本地日期分桶；
-   * 无任务的日期补 0，保证前端折线/柱状图按日连续。
+   * 最近 days 天（含今天）的新增任务趋势与消费分布，按 GET /api/stats 同款
+   * 的服务器本地日期分桶；无任务的日期补 0，保证前端图表按日连续。
    */
   createdAtTrend(days: number): StatsTrend {
     const points: TrendPoint[] = []
     for (let offset = days - 1; offset >= 0; offset -= 1) {
       const d = new Date()
       d.setDate(d.getDate() - offset)
-      points.push({ date: toLocalDate(d), created: 0 })
+      points.push({ date: toLocalDate(d), created: 0, tokens: 0, cost: 0 })
     }
     const byDate = new Map(points.map((point) => [point.date, point]))
-    for (const createdAt of this.listCreatedAt()) {
-      const parsed = new Date(createdAt)
+    for (const task of this.listTasksForTrend()) {
+      const parsed = new Date(task.created_at)
       if (Number.isNaN(parsed.getTime())) continue
-      const key = toLocalDate(parsed)
-      const point = byDate.get(key)
-      if (point !== undefined) point.created += 1
+      const point = byDate.get(toLocalDate(parsed))
+      if (point === undefined) continue
+      point.created += 1
+      point.tokens += Number(task.tokens ?? 0)
+      point.cost += Number(task.cost ?? 0)
     }
+    for (const point of points) point.cost = roundCost(point.cost)
     return { days, points }
   }
 }
@@ -215,7 +232,14 @@ export function toTask(row: TaskRow): Task {
     dueDate: row.due_date,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    tokens: Number(row.tokens ?? 0),
+    cost: roundCost(Number(row.cost ?? 0)),
   }
+}
+
+/** 消费金额统一保留两位小数，避免浮点尾差进入 API 输出。 */
+export function roundCost(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 function nowIso(): string {

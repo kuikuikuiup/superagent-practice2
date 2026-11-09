@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import type { Task } from '../api/types';
 import { PRIORITY_LABELS, PRIORITY_TAG_COLORS, STATUS_LABELS } from '../utils/labels';
 import { classifyDue } from '../utils/dueDate';
-import { formatDateTime } from '../utils/format';
+import { formatCost, formatDateTime, formatTokens } from '../utils/format';
 
 const props = defineProps<{
   task: Task;
@@ -69,6 +69,20 @@ const drawerWidth = typeof window !== 'undefined' && window.innerWidth <= 576 ? 
           <div class="drawer-field">
             <span class="drawer-label">更新时间</span>
             <span class="drawer-value">{{ formatDateTime(props.task.updatedAt) }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="props.task.tokens > 0 || props.task.cost > 0" class="drawer-section">
+        <h3 class="drawer-section-title">消费信息</h3>
+        <div class="drawer-field-row">
+          <div class="drawer-field">
+            <span class="drawer-label">Token 用量</span>
+            <span class="drawer-value">{{ formatTokens(props.task.tokens) }}</span>
+          </div>
+          <div class="drawer-field">
+            <span class="drawer-label">消费金额</span>
+            <span class="drawer-value">{{ formatCost(props.task.cost) }}</span>
           </div>
         </div>
       </section>

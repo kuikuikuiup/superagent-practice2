@@ -19,8 +19,11 @@ export interface Task {
   dueDate: string | null;
   /** ISO8601 UTC 字符串 */
   createdAt: string;
-  /** ISO8601 UTC 字符串 */
   updatedAt: string;
+  /** Agent 执行 Token 用量 */
+  tokens: number;
+  /** Agent 执行消费金额（元，最多两位小数） */
+  cost: number;
 }
 
 /** 新建任务的请求体。 */
@@ -30,6 +33,8 @@ export interface TaskInput {
   status?: TaskStatus;
   priority?: TaskPriority;
   dueDate?: string | null;
+  tokens?: number;
+  cost?: number;
 }
 
 /** 编辑任务的请求体（PATCH，任意字段子集）。 */
@@ -48,13 +53,19 @@ export interface TaskStats {
   /** 百分比数值 0..100 */
   doneRate: number;
   overdue: number;
+  /** Token 用量总和 */
+  tokens: number;
+  /** 累计消费金额（元） */
+  cost: number;
 }
 
-/** 单天新增任务数（服务器本地日期分桶）。 */
+/** 单天的任务量与消费分布（服务器本地日期分桶）。 */
 export interface TrendPoint {
   /** 'YYYY-MM-DD' */
   date: string;
   created: number;
+  tokens: number;
+  cost: number;
 }
 
 /** 最近 N 天（含今天）新增任务趋势。 */

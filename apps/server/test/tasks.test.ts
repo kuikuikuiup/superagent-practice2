@@ -33,6 +33,35 @@ describe('POST /api/tasks', () => {
     expect(task.priority).toBe('medium')
     expect(task.description).toBe('')
     expect(task.dueDate).toBeNull()
+    expect(task.tokens).toBe(0)
+    expect(task.cost).toBe(0)
+  })
+
+  it('接受 Agent 消费字段 tokens/cost 并校验非法值', async () => {
+    const ctx = await createTestApp()
+    const ok = await postTask(ctx, { title: 'agent 消费任务', tokens: 12480, cost: 1.24 })
+    expect(ok.status).toBe(201)
+    const saved = taskOf(ok.json)
+    expect(saved.tokens).toBe(12480)
+    expect(saved.cost).toBe(1.24)
+
+    const negTokens = await postTask(ctx, { title: '负数 tokens', tokens: -1 })
+    expect(negTokens.status).toBe(400)
+    console.log("NEGTOKENS", negTokens.status, JSON.stringify(negTokens.json))
+    expect(negTokens.json.error!.code).toBe('VALIDATION_ERROR')
+
+    const precision = await postTask(ctx, { title: ' cost 精度', cost: 1.234 })
+    expect(precision.status).toBe(400)
+
+    const patched = await ctx.app.inject({
+      method: 'PATCH',
+      url: `/api/tasks/${saved.id}`,
+      payload: { tokens: 500, cost: 10 },
+    })
+    expect(patched.statusCode).toBe(200)
+    const patchedTask = JSON.parse(String(patched.body)) as unknown as { data: { tokens: number; cost: number; description: string } }
+    expect(patchedTask.data.tokens).toBe(500)
+    expect(patchedTask.data.cost).toBe(10)
   })
 
   it('title 为空返回 400 且字段级 details', async () => {

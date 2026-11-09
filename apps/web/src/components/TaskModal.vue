@@ -6,7 +6,14 @@ import type { Task, TaskInput } from '../api/types';
 import { TASK_STATUSES, TASK_PRIORITIES } from '../api/types';
 import { PRIORITY_LABELS, STATUS_LABELS } from '../utils/labels';
 import { isValidDueDate } from '../utils/dueDate';
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, createFormValues, normalizeForm } from '../utils/validation';
+import {
+  COST_MAX,
+  TOKENS_MAX,
+  DESCRIPTION_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  createFormValues,
+  normalizeForm,
+} from '../utils/validation';
 
 const props = defineProps<{
   mode: 'create' | 'edit';
@@ -65,6 +72,48 @@ const dueDateRules: FieldRule[] = [
     validator: (value, callback) => {
       const raw = typeof value === 'string' ? value : '';
       callback(raw !== '' && !isValidDueDate(raw) ? '请输入有效的日期（YYYY-MM-DD）' : undefined);
+    },
+  },
+];
+
+const tokensRules: FieldRule[] = [
+  {
+    validator: (value, callback) => {
+      const n = typeof value === 'number' ? value : null;
+      if (n === null) {
+        callback();
+        return;
+      }
+      if (n < 0) {
+        callback('Token 用量不能为负数');
+        return;
+      }
+      if (!Number.isInteger(n)) {
+        callback('Token 用量必须是整数');
+        return;
+      }
+      callback(n > TOKENS_MAX ? `Token 用量不能超过 ${TOKENS_MAX}` : undefined);
+    },
+  },
+];
+
+const costRules: FieldRule[] = [
+  {
+    validator: (value, callback) => {
+      const n = typeof value === 'number' ? value : null;
+      if (n === null) {
+        callback();
+        return;
+      }
+      if (n < 0) {
+        callback('消费金额不能为负数');
+        return;
+      }
+      if (Math.round(n * 100) !== n * 100) {
+        callback('消费金额最多保留两位小数');
+        return;
+      }
+      callback(n > COST_MAX ? `消费金额不能超过 ${COST_MAX}` : undefined);
     },
   },
 ];
@@ -179,6 +228,46 @@ watch(
           <p v-if="serverErrors['dueDate']" class="task-modal-server-error" role="alert">{{ serverErrors['dueDate'] }}</p>
         </a-form-item>
       </div>
+
+      <div class="task-modal-row">
+        <a-form-item
+          field="tokens"
+          label="Token 用量"
+          :validate-status="serverErrors['tokens'] ? 'error' : undefined"
+          :rules="tokensRules"
+        >
+          <a-input-number
+            v-model="form.tokens"
+            :min="0"
+            :max="TOKENS_MAX"
+            :precision="0"
+            placeholder="未填写（Agent 执行记录）"
+            hide-button
+            allow-clear
+          />
+          <p v-if="serverErrors['tokens']" class="task-modal-server-error" role="alert">{{ serverErrors['tokens'] }}</p>
+        </a-form-item>
+
+        <a-form-item
+          field="cost"
+          label="消费金额（元）"
+          :validate-status="serverErrors['cost'] ? 'error' : undefined"
+          :rules="costRules"
+        >
+          <a-input-number
+            v-model="form.cost"
+            :min="0"
+            :max="COST_MAX"
+            :precision="2"
+            placeholder="未填写（可选）"
+            hide-button
+            allow-clear
+          />
+          <p v-if="serverErrors['cost']" class="task-modal-server-error" role="alert">{{ serverErrors['cost'] }}</p>
+        </a-form-item>
+
+        <span class="task-modal-consumption-hint">消费数据由执行后如实填写，将计入统计卡与详情页</span>
+      </div>
     </a-form>
 
     <template #footer>
@@ -215,8 +304,16 @@ watch(
 }
 
 .task-modal-row :deep(.arco-date-picker),
-.task-modal-row :deep(.arco-select-view-single) {
+.task-modal-row :deep(.arco-select-view-single),
+.task-modal-row :deep(.arco-input-number) {
   width: 100%;
+}
+
+.task-modal-consumption-hint {
+  align-self: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--app-text-3);
 }
 
 @media (max-width: 479.98px) {

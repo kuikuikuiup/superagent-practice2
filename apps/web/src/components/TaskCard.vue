@@ -4,6 +4,7 @@ import type { Task, TaskStatus } from '../api/types';
 import { STATUS_OPTIONS } from '../utils/labels';
 import { PRIORITY_LABELS, PRIORITY_TAG_COLORS } from '../utils/labels';
 import { classifyDue, formatDueDate } from '../utils/dueDate';
+import { formatCost, formatTokens } from '../utils/format';
 
 const props = defineProps<{
   task: Task;
@@ -101,6 +102,13 @@ function onCardClick(event: MouseEvent): void {
       <span v-if="due.kind !== 'none'" class="due" :class="`due--${due.kind}`">
         <icon-calendar />
         <span>{{ formatDueDate(props.task.dueDate ?? '') }}</span>
+      </span>
+      <span v-if="props.task.tokens > 0 || props.task.cost > 0" class="card-consumption">
+        <template v-if="props.task.cost > 0">{{ formatCost(props.task.cost) }}</template>
+        <template v-else>—</template>
+        <i class="card-consumption-sep">·</i>
+        <template v-if="props.task.tokens > 0">{{ formatTokens(props.task.tokens) }} tok</template>
+        <template v-else>— tok</template>
       </span>
 
       <span class="card-move">
@@ -258,6 +266,24 @@ function onCardClick(event: MouseEvent): void {
 .due--overdue {
   color: var(--app-danger);
   font-weight: 500;
+}
+
+/* 消费小字（¥ / Token），与日期同一字号层级 */
+.card-consumption {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--app-text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.card-consumption-sep {
+  font-style: normal;
+  color: var(--app-text-3);
+  opacity: 0.7;
 }
 
 .card-move {

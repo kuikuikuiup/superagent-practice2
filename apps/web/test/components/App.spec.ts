@@ -30,12 +30,14 @@ function buildTask(overrides: Partial<Task> = {}): Task {
     dueDate: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
+    tokens: 0,
+    cost: 0,
     ...overrides,
   };
 }
 
 function stats() {
-  return { total: 1, todo: 1, inProgress: 0, done: 0, doneRate: 0, overdue: 0 };
+  return { total: 1, todo: 1, inProgress: 0, done: 0, doneRate: 0, overdue: 0, tokens: 12480, cost: 1.24 };
 }
 
 /** 14 个点全部落在 7 天前，保证「近 7 天 / 前 7 天」环比都为 0，隐藏趋势条。 */
@@ -43,7 +45,7 @@ function trend() {
   const points = Array.from({ length: 14 }, (_, index) => {
     const d = new Date();
     d.setDate(d.getDate() - (14 - index));
-    return { date: d.toISOString().slice(0, 10), created: 0 };
+    return { date: d.toISOString().slice(0, 10), created: 0, tokens: 0, cost: 0 };
   });
   return { days: 14, points };
 }
@@ -103,6 +105,8 @@ describe('App', () => {
       status: 'todo',
       priority: 'medium',
       dueDate: null,
+      tokens: 0,
+      cost: 0,
     });
     expect(Message.success).toHaveBeenCalledWith('已创建「新任务」');
     expect(wrapper.find('#task-title').exists()).toBe(false);

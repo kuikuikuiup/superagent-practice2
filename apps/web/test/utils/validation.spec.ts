@@ -49,6 +49,15 @@ describe('validateTaskForm', () => {
   });
 });
 
+
+  it('未填写消费字段时规整为 0，填写后原样提交', () => {
+    const empty = normalizeForm(createFormValues());
+    expect(empty.tokens).toBe(0);
+    expect(empty.cost).toBe(0);
+    const filled = normalizeForm({ ...createFormValues(), tokens: 500, cost: 1.24 });
+    expect(filled.tokens).toBe(500);
+    expect(filled.cost).toBe(1.24);
+  });
 describe('createFormValues / normalizeForm', () => {
   const task: Task = {
     id: 't1',
@@ -59,6 +68,8 @@ describe('createFormValues / normalizeForm', () => {
     dueDate: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
+    tokens: 0,
+    cost: 0,
   };
 
   it('builds form values from a task (empty dueDate → empty string)', () => {
@@ -89,10 +100,12 @@ describe('createFormValues / normalizeForm', () => {
       status: 'todo',
       priority: 'medium',
       dueDate: null,
+      tokens: 0,
+      cost: 0,
     });
     expect(
       normalizeForm(valid),
-    ).toEqual({ ...valid, description: '一些说明', dueDate: '2026-11-30' });
+    ).toEqual({ ...valid, description: '一些说明', dueDate: '2026-11-30', tokens: 0, cost: 0 });
   });
 });
 

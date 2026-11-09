@@ -125,14 +125,16 @@ Body（JSON）：
 | `status` | 否 | `todo|in_progress|done`，缺省 `todo` |
 | `priority` | 否 | `high|medium|low`，缺省 `medium` |
 | `dueDate` | 否 | `YYYY-MM-DD` 或 `null`，代表截止日期 |
+| `tokens` | 否 | Agent 执行 Token 用量，非负整数 ≤100000000，缺省 0 |
+| `cost` | 否 | 消费金额（元），非负 ≤1000000，最多两位小数，缺省 0 |
 
 返回 201 `{ "data": Task }`。
 
 ### `GET /api/tasks/:id` / `PATCH /api/tasks/:id`
 
 - `GET` 返回 200 `{ "data": Task }`；不存在 → 404 `TASK_NOT_FOUND`。
-- `PATCH` 接受以下字段的可选组合，**至少一个字段**，否则 `VALIDATION_ERROR`：`title`、`description`、`status`、`priority`、`dueDate`；成功返回 200 最新任务，更新 `updatedAt`；不存在 → 404。
-- 字段错误：空 title、超长、未知枚举值、`dueDate` 非法格式均返回 400，且不执行任何写操作。
+- `PATCH` 接受以下字段的可选组合，**至少一个字段**，否则 `VALIDATION_ERROR`：`title`、`description`、`status`、`priority`、`dueDate`、`tokens`、`cost`；成功返回 200 最新任务，更新 `updatedAt`；不存在 → 404。
+- 字段错误：空 title、超长、未知枚举值、`dueDate` 非法格式、`tokens/cost` 负数或超限/超精度均返回 400，且不执行任何写操作。
 
 ### `DELETE /api/tasks/:id`
 
@@ -145,19 +147,21 @@ Body（JSON）：
 ```jsonc
 { "data": {
   "total": 12, "todo": 5, "inProgress": 3, "done": 4,
-  "doneRate": 33.33, "overdue": 2
+  "doneRate": 33.33, "overdue": 2,
+  "tokens": 48000, "cost": 9.86
 } }
 ```
 
 - `overdue`：`due_date < 今天(本地)` 且 `status != 'done'` 的任务数。
 - `doneRate`：`round(done/total*10000)/100`（百分比，保留两位；`total=0` 时为 `0`）。
+- `tokens`/`cost`：任务 Token 用量与消费金额的累计总和（agent 任务板消费字段）。
 
 ### `GET /api/stats/trend?days=N`
 
-最近 `N` 天（含今天、按服务器本地日期分桶）的新增任务趋势；`days` 可选，默认 14，限 1..30，非法值 → 400 `VALIDATION_ERROR`。无任务的日期补 0 保证按日连续；仅使用现有 `created_at` 字段，不依赖 schema 变更。
+最近 `N` 天（含今天、按服务器本地日期分桶）的新增任务趋势与消费分布；`days` 可选，默认 14，限 1..30，非法值 → 400 `VALIDATION_ERROR`。无任务的日期补 0 保证按日连续；每个点携带 `created/tokens/cost`。
 
 ```jsonc
-{ "data": { "days": 14, "points": [ { "date": "2026-11-01", "created": 2 }, … ] } }
+{ "data": { "days": 14, "points": [ { "date": "2026-11-01", "created": 2, "tokens": 3000, "cost": 0.3 }, … ] } }
 ```
 
 ### `GET /api/health`
@@ -175,7 +179,7 @@ Body（JSON）：
 - 交互：原生 drag-and-drop 移动卡片修改状态；移动端/键盘提供卡片“移至”操作；新建/编辑弹窗用表单校验；删除任务统一走 App 层删除 Modal 二次确认（卡片“更多操作”菜单 → Modal）。
 - 状态展示：加载骨架/指示、错误横幅（可重试）、空列/空筛选提示。
 - 数据同步机制：任何变更成功后，`useTasks` 重新拉取任务列表、统计与新增趋势（乐观更新仅用于演示意图不做，保证真实同步）。
-- 统计卡（Issue #5 风格迭代）：圆形软底语义色图标 + 标签/数值；「任务总数」卡基于 `GET /api/stats/trend` 渲染最近两周逐日新增迷你柱状图与“近 7 天”环比小字。不展示无数据支撑的假趋势：未记录完成时间的指标不做历史对比。
+- 统计卡（agent 任务板）：任务总数 / 待认领 / 进行中 / 已完成 / Token 用量 / 累计消费 / 已逾期；任务总数、Token 用量、累计消费三卡基于 `GET /api/stats/trend` 渲染最近两周逐日迷你柱状图与「近 7 天」环比小字。数据全部来自任务真实字段（tokens/cost 为 Agent 执行消费记录，随任务创建/编辑写入），不做无数据支撑的假趋势。
 
 ## 6. 测试策略
 
