@@ -6,7 +6,14 @@ import type { Task, TaskInput } from '../api/types';
 import { TASK_STATUSES, TASK_PRIORITIES } from '../api/types';
 import { PRIORITY_LABELS, STATUS_LABELS } from '../utils/labels';
 import { isValidDueDate } from '../utils/dueDate';
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, createFormValues, normalizeForm } from '../utils/validation';
+import {
+  COST_MAX,
+  TOKENS_MAX,
+  DESCRIPTION_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  createFormValues,
+  normalizeForm,
+} from '../utils/validation';
 
 const props = defineProps<{
   mode: 'create' | 'edit';
@@ -19,6 +26,9 @@ const emit = defineEmits<{
   (e: 'submit', payload: TaskInput): void;
   (e: 'close'): void;
 }>();
+
+// 桌面端 640px 表单宽度；窄视口退化为视口内边距宽度
+const modalWidth = typeof window !== 'undefined' && window.innerWidth <= 576 ? '96%' : 640;
 
 const form = reactive(createFormValues(props.task));
 const formRef = ref<FormInstance | null>(null);
@@ -66,6 +76,48 @@ const dueDateRules: FieldRule[] = [
   },
 ];
 
+const tokensRules: FieldRule[] = [
+  {
+    validator: (value, callback) => {
+      const n = typeof value === 'number' ? value : null;
+      if (n === null) {
+        callback();
+        return;
+      }
+      if (n < 0) {
+        callback('Token 用量不能为负数');
+        return;
+      }
+      if (!Number.isInteger(n)) {
+        callback('Token 用量必须是整数');
+        return;
+      }
+      callback(n > TOKENS_MAX ? `Token 用量不能超过 ${TOKENS_MAX}` : undefined);
+    },
+  },
+];
+
+const costRules: FieldRule[] = [
+  {
+    validator: (value, callback) => {
+      const n = typeof value === 'number' ? value : null;
+      if (n === null) {
+        callback();
+        return;
+      }
+      if (n < 0) {
+        callback('消费金额不能为负数');
+        return;
+      }
+      if (Math.round(n * 100) !== n * 100) {
+        callback('消费金额最多保留两位小数');
+        return;
+      }
+      callback(n > COST_MAX ? `消费金额不能超过 ${COST_MAX}` : undefined);
+    },
+  },
+];
+
 async function onSubmit(): Promise<void> {
   const result = await formRef.value?.validate();
   if (result && Object.keys(result).length > 0) return;
@@ -98,8 +150,10 @@ watch(
 <template>
   <a-modal
     :visible="true"
-    :width="560"
+    :width="modalWidth"
     :title="props.mode === 'create' ? '新建任务' : '编辑任务'"
+    title-align="start"
+    modal-class="task-modal"
     :mask-closable="true"
     @cancel="emit('close')"
     @close="emit('close')"
@@ -130,7 +184,7 @@ watch(
         :validate-status="serverErrors['description'] ? 'error' : undefined"
         :rules="descriptionRules"
       >
-        <a-textarea v-model="form.description" :input-attrs="{ id: 'task-description' }" placeholder="补充说明、验收标准、链接等（可选）" :auto-size="{ minRows: 4, maxRows: 10 }" />
+        <a-textarea v-model="form.description" :textarea-attrs="{ id: 'task-description' }" placeholder="补充说明、验收标准、链接等（可选）" :auto-size="{ minRows: 4, maxRows: 10 }" />
         <p v-if="serverErrors['description']" class="task-modal-server-error" role="alert">{{ serverErrors['description'] }}</p>
         <template #extra>
           <span class="task-modal-counter">{{ descriptionLength }}/{{ DESCRIPTION_MAX_LENGTH }}</span>
@@ -174,6 +228,46 @@ watch(
           <p v-if="serverErrors['dueDate']" class="task-modal-server-error" role="alert">{{ serverErrors['dueDate'] }}</p>
         </a-form-item>
       </div>
+
+      <div class="task-modal-row">
+        <a-form-item
+          field="tokens"
+          label="Token 用量"
+          :validate-status="serverErrors['tokens'] ? 'error' : undefined"
+          :rules="tokensRules"
+        >
+          <a-input-number
+            v-model="form.tokens"
+            :min="0"
+            :max="TOKENS_MAX"
+            :precision="0"
+            placeholder="未填写（Agent 执行记录）"
+            hide-button
+            allow-clear
+          />
+          <p v-if="serverErrors['tokens']" class="task-modal-server-error" role="alert">{{ serverErrors['tokens'] }}</p>
+        </a-form-item>
+
+        <a-form-item
+          field="cost"
+          label="消费金额（元）"
+          :validate-status="serverErrors['cost'] ? 'error' : undefined"
+          :rules="costRules"
+        >
+          <a-input-number
+            v-model="form.cost"
+            :min="0"
+            :max="COST_MAX"
+            :precision="2"
+            placeholder="未填写（可选）"
+            hide-button
+            allow-clear
+          />
+          <p v-if="serverErrors['cost']" class="task-modal-server-error" role="alert">{{ serverErrors['cost'] }}</p>
+        </a-form-item>
+
+        <span class="task-modal-consumption-hint">消费数据由执行后如实填写，将计入统计卡与详情页</span>
+      </div>
     </a-form>
 
     <template #footer>
@@ -186,6 +280,7 @@ watch(
 </template>
 
 <style scoped>
+/* 任务标题为第一信息层级 */
 .task-modal-banner {
   margin-bottom: var(--app-space-4);
 }
@@ -205,17 +300,48 @@ watch(
 .task-modal-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--app-space-3);
+  gap: var(--app-space-4);
 }
 
 .task-modal-row :deep(.arco-date-picker),
-.task-modal-row :deep(.arco-select-view-single) {
+.task-modal-row :deep(.arco-select-view-single),
+.task-modal-row :deep(.arco-input-number) {
   width: 100%;
+}
+
+.task-modal-consumption-hint {
+  align-self: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--app-text-3);
 }
 
 @media (max-width: 479.98px) {
   .task-modal-row {
     grid-template-columns: 1fr;
+    gap: 0;
   }
+}
+</style>
+
+<style>
+/* Modal 也经 Teleport 渲染，宽度/内边距的视口适配放到 modal-class 上 */
+.task-modal .arco-modal-header {
+  padding: 20px 24px 12px;
+  border-bottom: none;
+  background: none;
+}
+
+.task-modal .arco-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.task-modal .arco-modal-body {
+  padding: 8px 24px 0;
+}
+
+.task-modal .arco-modal-footer {
+  padding: 16px 24px 20px;
 }
 </style>

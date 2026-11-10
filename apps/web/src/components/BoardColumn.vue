@@ -43,7 +43,7 @@ function onDrop(event: DragEvent): void {
 <template>
   <section
     class="column"
-    :class="{ 'column--dragover': draggingOver }"
+    :class="{ 'column--dragover': draggingOver, 'column--empty': props.tasks.length === 0 }"
     :data-column="columnKey"
     :aria-label="props.title"
     @dragover="onDragOver"
@@ -57,7 +57,7 @@ function onDrop(event: DragEvent): void {
       <a-badge class="column-badge" :count="props.tasks.length" :max-count="99" />
     </header>
 
-    <ul class="column-list">
+    <ul class="column-list" :class="{ 'column-list--empty': props.tasks.length === 0 }">
       <li v-for="task in props.tasks" :key="task.id" class="column-item">
         <TaskCard
           :task="task"
@@ -69,12 +69,12 @@ function onDrop(event: DragEvent): void {
       </li>
     </ul>
 
-    <a-empty
-      v-if="props.tasks.length === 0"
-      class="column-empty"
-      size="small"
-      :description="props.emptyText"
-    />
+    <div v-if="props.tasks.length === 0" class="column-empty">
+      <span class="column-empty-icon">
+        <icon-empty />
+      </span>
+      <p class="column-empty-text">{{ props.emptyText }}</p>
+    </div>
   </section>
 </template>
 
@@ -83,17 +83,24 @@ function onDrop(event: DragEvent): void {
   display: flex;
   flex-direction: column;
   gap: var(--app-space-3);
-  min-height: 240px;
-  padding: var(--app-space-3);
+  min-height: 280px;
+  padding: var(--app-space-4);
   background: var(--app-muted-bg);
   border: 1px solid var(--app-card-border);
   border-radius: var(--app-radius);
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
+/* 高度由网格行高（视口剩余空间）决定：任务多时列内滚动 */
+.column {
+  height: 100%;
+  min-height: 280px;
+}
+
 .column--dragover {
   border-color: var(--app-primary);
   background: var(--app-primary-light);
+  box-shadow: var(--shadow-sm);
 }
 
 .column-header {
@@ -122,9 +129,10 @@ function onDrop(event: DragEvent): void {
 }
 
 .column-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--app-text-1);
+  letter-spacing: 0.02em;
 }
 
 /* arco Badge 计数，弱化为中性灰（避免每列一串红色徽标喧宾夺主） */
@@ -135,29 +143,74 @@ function onDrop(event: DragEvent): void {
 }
 
 .column-list {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--app-space-2);
-  min-height: 96px;
+  gap: var(--app-space-3);
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.column-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.column-list::-webkit-scrollbar-thumb {
+  background: var(--app-muted-bg-strong);
+  border-radius: 3px;
+}
+
+.column-list::-webkit-scrollbar-thumb:hover {
+  background: var(--app-border-strong);
+}
+
+.column-list--empty {
+  flex: none;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 移动端单列布局：列高自适应视口剩余空间，任务多时列内滚动 */
+@media (max-width: 991.98px) {
+  .column-list {
+    max-height: 68vh;
+  }
 }
 
 .column-item {
   display: block;
 }
 
+/* 空列去外框：空态在剩余列高内上下居中 */
+.column--empty {
+  min-height: 240px;
+}
+
 .column-empty {
-  border: 1px dashed var(--app-border-strong);
-  border-radius: var(--app-radius);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-space-2);
   padding: var(--app-space-3) 0;
-  background: transparent;
 }
 
-.column-empty :deep(.arco-empty-image) {
-  display: none;
-}
-
-.column-empty :deep(.arco-empty-description) {
+.column-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
   color: var(--app-text-3);
+  background: var(--app-muted-bg-strong);
+  border-radius: 50%;
+}
+
+.column-empty-text {
   font-size: 13px;
+  color: var(--app-text-3);
 }
 </style>

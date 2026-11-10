@@ -1,8 +1,11 @@
-import type { Task, TaskInput, TaskPage, TaskPatch, TaskStats, TaskFilter } from './types';
+import type { Task, TaskInput, TaskPage, TaskPatch, TaskStats, TaskFilter, StatsTrend } from './types';
 import { request } from './client';
 import { buildTaskQuery } from '../utils/filters';
 
 const BASE = '/api';
+
+/** 统计卡“新增任务趋势”固定取最近两周，覆盖前 7 天环比窗口。 */
+export const TREND_DAYS = 14;
 
 export function fetchTasks(filter: TaskFilter): Promise<TaskPage> {
   return request<TaskPage>(`${BASE}/tasks${buildTaskQuery(filter)}`);
@@ -10,6 +13,10 @@ export function fetchTasks(filter: TaskFilter): Promise<TaskPage> {
 
 export function fetchStats(): Promise<TaskStats> {
   return request<TaskStats>(`${BASE}/stats`);
+}
+
+export function fetchStatsTrend(days: number = TREND_DAYS): Promise<StatsTrend> {
+  return request<StatsTrend>(`${BASE}/stats/trend?days=${days}`);
 }
 
 export function createTask(input: TaskInput): Promise<Task> {

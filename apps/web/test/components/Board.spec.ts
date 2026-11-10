@@ -14,6 +14,8 @@ function buildTask(overrides: Partial<Task> = {}): Task {
     dueDate: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
+    tokens: 0,
+    cost: 0,
     ...overrides,
   };
 }

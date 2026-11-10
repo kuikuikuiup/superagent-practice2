@@ -4,6 +4,9 @@ import { isValidDueDate } from './dueDate';
 
 export const TITLE_MAX_LENGTH = 100;
 export const DESCRIPTION_MAX_LENGTH = 2000;
+/** Agent 消费数据上限，与后端 schema 保持一致 */
+export const TOKENS_MAX = 100_000_000;
+export const COST_MAX = 1_000_000;
 
 export interface TaskFormValues {
   title: string;
@@ -12,6 +15,10 @@ export interface TaskFormValues {
   priority: TaskPriority;
   /** 空字符串表示未设置截止日期 */
   dueDate: string;
+  /** Agent 执行 Token 用量（undefined 表示未填写） */
+  tokens?: number;
+  /** 消费金额（元，最多两位小数；undefined 表示未填写） */
+  cost?: number;
 }
 
 export type TaskFormErrors = Record<string, string>;
@@ -35,6 +42,15 @@ export function validateTaskForm(values: TaskFormValues): TaskFormErrors {
   if (!TASK_STATUSES.includes(values.status)) errors['status'] = '请选择有效的状态';
   if (!TASK_PRIORITIES.includes(values.priority)) errors['priority'] = '请选择有效的优先级';
 
+  if (values.tokens !== undefined && (!Number.isInteger(values.tokens) || values.tokens < 0 || values.tokens > TOKENS_MAX)) {
+    errors['tokens'] = 'Token 用量必须是不超过 100000000 的非负整数';
+  }
+  if (values.cost !== undefined && (!Number.isFinite(values.cost) || values.cost < 0 || values.cost > COST_MAX)) {
+    errors['cost'] = '消费金额必须是 0..1000000 的数字';
+  } else if (values.cost !== undefined && Math.round(values.cost * 100) !== values.cost * 100) {
+    errors['cost'] = '消费金额最多保留两位小数';
+  }
+
   return errors;
 }
 
@@ -46,10 +62,12 @@ export function createFormValues(task?: Task | null): TaskFormValues {
     status: task?.status ?? 'todo',
     priority: task?.priority ?? 'medium',
     dueDate: task?.dueDate ?? '',
+    tokens: task?.tokens === 0 ? undefined : task?.tokens,
+    cost: task?.cost === 0 ? undefined : task?.cost,
   };
 }
 
-/** 将表单值规整为 POST/PATCH 请求体：去空白、空日期 → null。 */
+/** 将表单值规整为 POST/PATCH 请求体：去空白、空日期 → null、未填消费 → 0。 */
 export function normalizeForm(values: TaskFormValues): TaskInput {
   return {
     title: values.title.trim(),
@@ -57,6 +75,8 @@ export function normalizeForm(values: TaskFormValues): TaskInput {
     status: values.status,
     priority: values.priority,
     dueDate: values.dueDate === '' ? null : values.dueDate,
+    tokens: values.tokens ?? 0,
+    cost: values.cost ?? 0,
   };
 }
 

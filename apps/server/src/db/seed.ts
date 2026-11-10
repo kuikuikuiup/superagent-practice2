@@ -47,10 +47,12 @@ async function seed(): Promise<void> {
     const dd = String(d.getDate()).padStart(2, '0')
     return `${y}-${m}-${dd}`
   }
+  // Agent 消费示例：真实字段（tokens / cost），随演示数据一并写入；
+  // 已有条据保持默认 0，由执行后真实写入或人工补录。
   const demos: Parameters<typeof repo.create>[0][] = [
-    { title: '梳理看板需求与数据模型', description: '拆分任务实体，确定状态与优先级枚举。', status: 'done', priority: 'high', dueDate: daysFromNow(-2) },
-    { title: '实现任务 REST API', description: 'Fastify + SQLite，覆盖 CRUD 与统计端点。', status: 'in_progress', priority: 'high', dueDate: daysFromNow(0) },
-    { title: '前端看板交互联调', description: '拖拽改状态、筛选排序与统计刷新。', status: 'todo', priority: 'medium', dueDate: daysFromNow(3) },
+    { title: '梳理看板需求与数据模型', description: '拆分任务实体，确定状态与优先级枚举。', status: 'done', priority: 'high', dueDate: daysFromNow(-2), tokens: 12480, cost: 1.24 },
+    { title: '实现任务 REST API', description: 'Fastify + SQLite，覆盖 CRUD 与统计端点。', status: 'in_progress', priority: 'high', dueDate: daysFromNow(0), tokens: 8640, cost: 0.86 },
+    { title: '前端看板交互联调', description: '拖拽改状态、筛选排序与统计刷新。', status: 'todo', priority: 'medium', dueDate: daysFromNow(3), tokens: 3200, cost: 0.32 },
     { title: '编写 API 集成测试', description: '覆盖合法输入、非法输入与持久化。', status: 'todo', priority: 'medium', dueDate: daysFromNow(5) },
     { title: '归档旧数据迁移脚本', description: '', status: 'todo', priority: 'low', dueDate: daysFromNow(-1) },
   ]

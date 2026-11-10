@@ -99,11 +99,32 @@ function onDropStatus(status: TaskStatus, event: DragEvent): void {
 </template>
 
 <style scoped>
+.board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .board-grid {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--app-space-4);
-  align-items: start;
+  align-items: stretch;
+}
+
+/* 骨架占位列不参与拉伸，保持紧凑高度 */
+.skeleton-column {
+  align-self: start;
+}
+
+@media (min-width: 1440px) {
+  .board-grid {
+    gap: var(--app-space-5);
+  }
 }
 
 .skeleton-column {

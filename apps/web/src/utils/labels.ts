@@ -2,7 +2,7 @@ import type { SortField, TaskPriority, TaskStatus } from '../api/types';
 import { SORT_FIELDS, TASK_PRIORITIES, TASK_STATUSES } from '../api/types';
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: '待办',
+  todo: '待认领',
   in_progress: '进行中',
   done: '已完成',
 };

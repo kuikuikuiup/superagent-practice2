@@ -17,6 +17,20 @@ const dueDateSchema = z
 const statusSchema = z.enum(TASK_STATUSES)
 const prioritySchema = z.enum(TASK_PRIORITIES)
 
+/** Token 用量：非负整数（Agent 执行累计）。 */
+const tokensSchema = z
+  .number('tokens 必须是数字')
+  .int('tokens 必须是整数')
+  .min(0, 'tokens 不能为负数')
+  .max(100_000_000, 'tokens 不能超过 100000000')
+
+/** 消费金额（元）：非负、最多两位小数。 */
+const costSchema = z
+  .number('cost 必须是数字')
+  .min(0, 'cost 不能为负数')
+  .max(1_000_000, 'cost 不能超过 1000000')
+  .refine((value) => Math.round(value * 100) === value * 100, 'cost 最多保留两位小数')
+
 export const createTaskSchema = z.object({
   title: z
     .string('title 必须是字符串')
@@ -30,6 +44,8 @@ export const createTaskSchema = z.object({
   status: statusSchema.default('todo'),
   priority: prioritySchema.default('medium'),
   dueDate: dueDateSchema.nullish().default(null),
+  tokens: tokensSchema.optional().default(0),
+  cost: costSchema.optional().default(0),
 })
 
 export const updateTaskSchema = z
@@ -44,9 +60,11 @@ export const updateTaskSchema = z
       .string('description 必须是字符串')
       .max(2000, 'description 最长 2000 个字符')
       .optional(),
-    status: statusSchema.optional(),
-    priority: prioritySchema.optional(),
+    status: z.enum(TASK_STATUSES).optional(),
+    priority: z.enum(TASK_PRIORITIES).optional(),
     dueDate: dueDateSchema.nullable().optional(),
+    tokens: tokensSchema.optional(),
+    cost: costSchema.optional(),
   })
   .refine(
     (value) => Object.keys(value).length > 0,

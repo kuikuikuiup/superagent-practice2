@@ -29,6 +29,12 @@ describe('GET /api/stats', () => {
   afterAll(async () => { await closeApp(ctx) })
 
   it('统计值与真实数据一致', async () => {
+    // patch 首两条任务写入消费数据，验证统计聚合
+    const list = await ctx.app.inject({ method: 'GET', url: '/api/tasks' })
+    const items = list.json().data.items as { id: string }[]
+    await ctx.app.inject({ method: 'PATCH', url: `/api/tasks/${items[0].id}`, payload: { tokens: 12480, cost: 1.24 } })
+    await ctx.app.inject({ method: 'PATCH', url: `/api/tasks/${items[1].id}`, payload: { tokens: 8640, cost: 0.86 } })
+
     const response = await ctx.app.inject({ method: 'GET', url: '/api/stats' })
     expect(response.statusCode).toBe(200)
     const stats = response.json().data as TaskStats
@@ -40,14 +46,65 @@ describe('GET /api/stats', () => {
       // await: done=2 / total=6 => 33.33
       doneRate: 33.33,
       overdue: 2,
+      tokens: 21120,
+      cost: 2.1,
     })
+  })
+
+  it('趋势点包含每日 tokens/cost 消费聚合', async () => {
+    const response = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend?days=3' })
+    expect(response.statusCode).toBe(200)
+    const data = response.json().data as { days: number; points: { date: string; created: number; tokens: number; cost: number }[] }
+    const today = todayLocal()
+    const todayPoint = data.points.find((p) => p.date === today)
+    expect(todayPoint).toBeDefined()
+    // 当日有 6 条任务（本 describe beforeAll 创建），消费被聚合入当日桶
+    expect(todayPoint!.created).toBe(6)
+    expect(todayPoint!.tokens).toBe(21120)
+    expect(todayPoint!.cost).toBeCloseTo(2.1, 6)
   })
 
   it('空数据库时统计均为 0 且完成率为 0', async () => {
     const other = await createTestApp()
     const response = await other.app.inject({ method: 'GET', url: '/api/stats' })
-    expect(response.json().data).toEqual({ total: 0, todo: 0, inProgress: 0, done: 0, doneRate: 0, overdue: 0 })
+    expect(response.json().data).toEqual({ total: 0, todo: 0, inProgress: 0, done: 0, doneRate: 0, overdue: 0, tokens: 0, cost: 0 })
     await closeApp(other)
+  })
+})
+
+describe('GET /api/stats/trend', () => {
+  it('按本地日期分桶返回最近 N 天的新增任务趋势并补 0', async () => {
+    const ctx = await createTestApp()
+    for (const title of ['t1', 't2']) {
+      await postTask(ctx, { title })
+    }
+    const response = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend?days=3' })
+    expect(response.statusCode).toBe(200)
+    const data = response.json().data as { days: number; points: { date: string; created: number }[] }
+    expect(data.days).toBe(3)
+    expect(data.points).toHaveLength(3)
+    // 全部任务都在刚才创建：三桶之和等于任务数，今天为 2
+    expect(data.points.reduce((sum, p) => sum + p.created, 0)).toBe(2)
+    expect(data.points.at(-1)?.created).toBe(2)
+    // 日期按本地日期升序且最后一天是今天
+    expect(data.points[0].date < data.points[2].date).toBe(true)
+    expect(data.points.at(-1)?.date).toBe(todayLocal())
+    await closeApp(ctx)
+  })
+
+  it('默认返回 14 天，days 非法时返回 VALIDATION_ERROR', async () => {
+    const ctx = await createTestApp()
+    const dflt = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend' })
+    expect(dflt.statusCode).toBe(200)
+    expect(dflt.json().data.days).toBe(14)
+    expect(dflt.json().data.points).toHaveLength(14)
+
+    const bad = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend?days=100' })
+    expect(bad.statusCode).toBe(400)
+    expect(bad.json().error.code).toBe('VALIDATION_ERROR')
+    const frac = await ctx.app.inject({ method: 'GET', url: '/api/stats/trend?days=2.5' })
+    expect(frac.statusCode).toBe(400)
+    await closeApp(ctx)
   })
 })
 

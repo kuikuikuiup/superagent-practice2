@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
-import { Select as ASelect, Popconfirm as APopconfirm } from '@arco-design/web-vue';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Select as ASelect } from '@arco-design/web-vue';
 import { nextTick } from 'vue';
 import { mountWithArco } from '../../test/helpers/arco';
 import TaskCard from '../../src/components/TaskCard.vue';
@@ -16,11 +16,18 @@ function buildTask(overrides: Partial<Task> = {}): Task {
     dueDate: '2026-01-01',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
+    tokens: 0,
+    cost: 0,
     ...overrides,
   };
 }
 
 describe('TaskCard', () => {
+  // “更多操作”菜单经 Teleport 渲染到 body：相关用例用真实传送（stub 关闭）
+  // 并挂到 document 上，afterEach 统一清理浮层，避免用例间残留。
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
   it('renders title, description snippet and priority tag', () => {
     const wrapper = mountWithArco(TaskCard, { props: { task: buildTask() } });
     expect(wrapper.find('.card-title').text()).toBe('整理需求');
@@ -40,21 +47,56 @@ describe('TaskCard', () => {
     expect(wrapper.find('.due').classes()).not.toContain('due--overdue');
   });
 
-  it('emits open / edit from the title and action buttons', async () => {
+  it('emits open from the title and edit from the more-actions dropdown', async () => {
     const wrapper = mountWithArco(TaskCard, {
       props: { task: buildTask({ priority: 'low' }) },
+      attachTo: document.body,
+      global: { stubs: { teleport: false } },
     });
     await wrapper.find('.card-title').trigger('click');
-    await wrapper.find('button[aria-label="编辑任务"]').trigger('click');
     expect(wrapper.emitted('open')?.length).toBe(1);
+
+    // 打开“更多操作”菜单（Teleport 到 body），再点击“编辑”菜单项
+    await wrapper.find('button[aria-label="更多操作"]').trigger('click');
+    await nextTick();
+    const editOption = document.querySelector<HTMLElement>('.card-more-edit');
+    expect(editOption).not.toBeNull();
+    editOption!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await nextTick();
     expect(wrapper.emitted('edit')?.length).toBe(1);
   });
 
-  it('emits delete via card Popconfirm', async () => {
+  it('emits open when clicking anywhere on the card except controls', async () => {
     const wrapper = mountWithArco(TaskCard, { props: { task: buildTask() } });
-    expect(wrapper.find('button[aria-label="删除任务"]').exists()).toBe(true);
-    const popconfirm = wrapper.findComponent(APopconfirm);
-    popconfirm.vm.$emit('ok');
+    await wrapper.find('.card-title').trigger('click');
+    expect(wrapper.emitted('open')?.length).toBe(1);
+    // 状态选择与更多操作区域不触发打开详情
+    await wrapper.find('.card-move').trigger('click');
+    await wrapper.find('button[aria-label="更多操作"]').trigger('click');
+    expect(wrapper.emitted('open')?.length).toBe(1);
+  });
+
+  it('renders the low-frequency actions in a single aria-labeled more button', () => {
+    const wrapper = mountWithArco(TaskCard, { props: { task: buildTask() } });
+    expect(wrapper.find('button[aria-label="更多操作"]').exists()).toBe(true);
+    expect(wrapper.find('button[aria-label="编辑任务"]').exists()).toBe(false);
+    expect(wrapper.find('button[aria-label="删除任务"]').exists()).toBe(false);
+  });
+
+  it('emits delete from the more-actions dropdown', async () => {
+    const wrapper = mountWithArco(TaskCard, {
+      props: { task: buildTask() },
+      attachTo: document.body,
+      global: { stubs: { teleport: false } },
+    });
+    // 打开“更多操作”菜单（Teleport 到 body），再点击“删除”菜单项；
+    // 确认由 App 层的删除 Modal 承担（Dropdown 内嵌 Popconfirm 会随菜单关闭而失效）。
+    await wrapper.find('button[aria-label="更多操作"]').trigger('click');
+    await nextTick();
+    const deleteOption = document.querySelector<HTMLElement>('.card-more-danger');
+    expect(deleteOption).not.toBeNull();
+    deleteOption!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await nextTick();
     expect(wrapper.emitted('delete')?.length).toBe(1);
   });
 
