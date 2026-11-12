@@ -14,7 +14,7 @@ vi.mock('../../src/api/tasks', () => ({
   deleteTask: vi.fn(),
 }));
 
-import { createTask, deleteTask, fetchStats, fetchStatsTrend, fetchTasks } from '../../src/api/tasks';
+import { createTask, deleteTask, fetchStats, fetchStatsTrend, fetchTasks, updateTask } from '../../src/api/tasks';
 import { Message } from '@arco-design/web-vue';
 import { mountWithArco } from '../helpers/arco';
 import App from '../../src/App.vue';
@@ -76,6 +76,7 @@ beforeEach(() => {
   vi.mocked(fetchStats).mockResolvedValue(stats());
   vi.mocked(fetchStatsTrend).mockResolvedValue(trend());
   vi.mocked(createTask).mockResolvedValue(buildTask());
+  vi.mocked(updateTask).mockResolvedValue(buildTask());
   vi.mocked(deleteTask).mockResolvedValue(undefined);
   vi.spyOn(Message, 'success').mockImplementation(() => null as never);
   vi.spyOn(Message, 'error').mockImplementation(() => null as never);
@@ -149,6 +150,59 @@ describe('App', () => {
     await buttonByText(wrapper, '确认删除')?.trigger('click');
     await settle();
     expect(deleteTask).toHaveBeenCalledWith('t1');
+  });
+
+  it('keeps the detail drawer open under the edit modal and returns to it (P1-05)', async () => {
+    const wrapper = await mountApp();
+    await wrapper.find('.card-title').trigger('click');
+    await settle();
+    expect(wrapper.find('.drawer-title').exists()).toBe(true);
+
+    await wrapper.find('.drawer-footer-edit').trigger('click');
+    await settle();
+    // 编辑叠加在详情之上：详情仍在，编辑表单同时可见
+    expect(wrapper.find('.drawer-title').exists()).toBe(true);
+    expect(wrapper.find('#task-title').exists()).toBe(true);
+
+    await buttonByText(wrapper, '取消')?.trigger('click');
+    await settle();
+    expect(wrapper.find('#task-title').exists()).toBe(false);
+    expect(wrapper.find('.drawer-title').exists()).toBe(true);
+  });
+
+  it('closes the edit modal first, then the detail drawer on successive Esc presses (P1-05)', async () => {
+    const wrapper = await mountApp();
+    await wrapper.find('.card-title').trigger('click');
+    await settle();
+    await wrapper.find('.drawer-footer-edit').trigger('click');
+    await settle();
+
+    // 第一次 Esc 在编辑弹窗内触发：只关闭编辑，详情继续保留
+    document.documentElement.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    await settle();
+    expect(wrapper.find('#task-title').exists()).toBe(false);
+    expect(wrapper.find('.drawer-title').exists()).toBe(true);
+
+    // 第二次 Esc 关闭详情
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await settle();
+    expect(wrapper.find('.drawer-title').exists()).toBe(false);
+  });
+
+  it('changes a task status directly from the detail drawer (P2-09)', async () => {
+    const wrapper = await mountApp();
+    await wrapper.find('.card-title').trigger('click');
+    await settle();
+    const selects = wrapper.findAllComponents(ASelect);
+    const drawerSelect = selects.at(-1);
+    expect(drawerSelect).toBeTruthy();
+    drawerSelect!.vm.$emit('change', 'done');
+    await settle();
+    expect(updateTask).toHaveBeenCalledWith('t1', { status: 'done' });
+    // 改状态成功后详情保持打开
+    expect(wrapper.find('.drawer-title').exists()).toBe(true);
   });
 
   it('applies the keyword filter after debounce', async () => {

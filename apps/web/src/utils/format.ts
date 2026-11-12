@@ -17,12 +17,21 @@ export function formatDoneRate(rate: number): string {
   return `${text}%`;
 }
 
-/** Token 用量 → '2.3k' / '12' / '—'（null/0 返回 '—'）。 */
+/**
+ * 词元用量统一格式（统计卡 / 卡片 / 详情共用同一规则）：
+ * - 空值（null/undefined/NaN/负数）→ '—'；
+ * - 0 → '0'（0 是真实值，不写作「未填写」）；
+ * - < 1000 → 整数；
+ * - ≥ 1000 → 一位小数的 k（8.6k / 12.5k / 24.3k，整数 k 省略 .0）。
+ */
 export function formatTokens(tokens: number | null | undefined): string {
-  const value = Number(tokens ?? 0);
-  if (!Number.isFinite(value) || value <= 0) return '—';
-  if (value >= 10_000) return `${Math.round((value / 1000) * 10) / 10}k`;
-  return String(Math.round(value));
+  if (tokens === null || tokens === undefined) return '—';
+  const value = Number(tokens);
+  if (!Number.isFinite(value) || value < 0) return '—';
+  if (value === 0) return '0';
+  if (value < 1000) return String(Math.round(value));
+  const k = Math.round((value / 1000) * 10) / 10;
+  return Number.isInteger(k) ? `${k}k` : `${k.toFixed(1)}k`;
 }
 
 /** 消费金额（元）→ '¥3.20'（保留两位小数）。 */

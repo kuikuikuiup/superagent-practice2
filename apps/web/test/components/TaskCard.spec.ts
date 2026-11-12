@@ -4,6 +4,7 @@ import { Select as ASelect } from '@arco-design/web-vue';
 import { nextTick } from 'vue';
 import { mountWithArco } from '../../test/helpers/arco';
 import TaskCard from '../../src/components/TaskCard.vue';
+import { todayISO } from '../../src/utils/dueDate';
 import type { Task } from '../../src/api/types';
 
 function buildTask(overrides: Partial<Task> = {}): Task {
@@ -45,6 +46,52 @@ describe('TaskCard', () => {
     const wrapper = mountWithArco(TaskCard, { props: { task: buildTask({ status: 'done' }) } });
     expect(wrapper.find('.card-overdue').exists()).toBe(false);
     expect(wrapper.find('.due').classes()).not.toContain('due--overdue');
+  });
+
+  it('shows an orange 今天到期 tag (not 临近截止) for tasks due today', () => {
+    const wrapper = mountWithArco(TaskCard, {
+      props: { task: buildTask({ dueDate: todayISO(), status: 'in_progress' }) },
+    });
+    expect(wrapper.find('.card-due-today').text()).toContain('今天到期');
+    expect(wrapper.find('.card-overdue').exists()).toBe(false);
+    expect(wrapper.find('.due').classes()).toContain('due--today');
+    expect(wrapper.text()).not.toContain('临近截止');
+  });
+
+  it('renders the date with a warning color class for soon tasks', () => {
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 1);
+    const dueDate = `${soon.getFullYear()}-${String(soon.getMonth() + 1).padStart(2, '0')}-${String(
+      soon.getDate(),
+    ).padStart(2, '0')}`;
+    const wrapper = mountWithArco(TaskCard, { props: { task: buildTask({ dueDate }) } });
+    expect(wrapper.find('.card-due-today').exists()).toBe(false);
+    expect(wrapper.find('.card-overdue').exists()).toBe(false);
+    expect(wrapper.find('.due').classes()).toContain('due--soon');
+  });
+
+  it('uses 词元 wording and the shared token/cost formatters', () => {
+    const wrapper = mountWithArco(TaskCard, {
+      props: { task: buildTask({ tokens: 8640, cost: 0.86 }) },
+    });
+    const consumption = wrapper.find('.card-consumption');
+    expect(consumption.text()).toContain('8.6k 词元');
+    expect(consumption.text()).toContain('¥0.86');
+    expect(wrapper.text()).not.toMatch(/\btok\b/);
+    expect(wrapper.text()).not.toMatch(/\bToken\b/);
+  });
+
+  it('omits the consumption line when both tokens and cost are zero', () => {
+    const wrapper = mountWithArco(TaskCard, { props: { task: buildTask({ tokens: 0, cost: 0 }) } });
+    expect(wrapper.find('.card-consumption').exists()).toBe(false);
+  });
+
+  it('exposes the real task id for board drag & drop and keeps a move control', () => {
+    const wrapper = mountWithArco(TaskCard, { props: { task: buildTask({ id: 'task-42' }) } });
+    const root = wrapper.find('.card');
+    expect(root.attributes('data-task-id')).toBe('task-42');
+    expect(root.attributes('draggable')).toBe('true');
+    expect(wrapper.find('.card-move select, .card-move .arco-select').exists()).toBe(true);
   });
 
   it('emits open from the title and edit from the more-actions dropdown', async () => {

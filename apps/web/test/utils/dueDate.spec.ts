@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyDue,
   daysUntil,
+  dueKindNote,
   formatDueDate,
   isOverdueTask,
   isValidDueDate,
@@ -78,11 +79,14 @@ describe('classifyDue', () => {
     expect(classifyDue('2026-01-01', 'in_progress', today)).toEqual({ kind: 'overdue', isOverdue: true });
   });
 
-  it('treats due today as soon but not overdue', () => {
-    expect(classifyDue('2026-03-05', 'in_progress', today)).toEqual({ kind: 'soon', isOverdue: false });
+  it('marks today as its own today kind (not soon, not overdue)', () => {
+    expect(classifyDue('2026-03-05', 'in_progress', today)).toEqual({ kind: 'today', isOverdue: false });
+    expect(classifyDue('2026-03-05', 'todo', today)).toEqual({ kind: 'today', isOverdue: false });
+    // done 任务即使今天到期也归为 normal
+    expect(classifyDue('2026-03-05', 'done', today)).toEqual({ kind: 'normal', isOverdue: false });
   });
 
-  it('marks within-3-days as soon', () => {
+  it('marks within-2-days as soon', () => {
     expect(classifyDue('2026-03-06', 'todo', today)).toEqual({ kind: 'soon', isOverdue: false });
     expect(classifyDue('2026-03-07', 'todo', today)).toEqual({ kind: 'soon', isOverdue: false });
   });
@@ -90,6 +94,16 @@ describe('classifyDue', () => {
   it('treats 3+ days ahead as normal', () => {
     expect(classifyDue('2026-03-08', 'todo', today)).toEqual({ kind: 'normal', isOverdue: false });
     expect(classifyDue('2027-01-01', 'todo', today)).toEqual({ kind: 'normal', isOverdue: false });
+  });
+});
+
+describe('dueKindNote', () => {
+  it('returns the shared card/detail wording', () => {
+    expect(dueKindNote('overdue')).toBe('已逾期');
+    expect(dueKindNote('today')).toBe('今天到期');
+    expect(dueKindNote('soon')).toBe('临近截止');
+    expect(dueKindNote('normal')).toBe('');
+    expect(dueKindNote('none')).toBe('');
   });
 });
 

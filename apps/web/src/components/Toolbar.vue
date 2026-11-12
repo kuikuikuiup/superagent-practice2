@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { SortOrder, TaskFilter, TaskPriority, SortField, TaskStatus } from '../api/types';
 import { createDefaultFilter, TASK_STATUSES, TASK_PRIORITIES, SORT_FIELDS, SORT_ORDERS } from '../api/types';
-import { PRIORITY_LABELS, SORT_FIELD_LABELS, STATUS_LABELS } from '../utils/labels';
+import {
+  PRIORITY_FILTER_OPTIONS,
+  SORT_FIELD_LABELS,
+  STATUS_FILTER_OPTIONS,
+  sortOrderLabel,
+} from '../utils/labels';
+import { withSortChange } from '../utils/filters';
 
 const props = defineProps<{
   filters: TaskFilter;
@@ -16,6 +22,9 @@ const emit = defineEmits<{
   (e: 'refresh'): void;
 }>();
 
+/** 窄屏下筛选控件默认收起，点「筛选」展开，避免首屏被筛选区占满。 */
+const filtersOpen = ref(false);
+
 function set<K extends keyof TaskFilter>(key: K, value: TaskFilter[K]): void {
   emit('update:filters', { ...props.filters, [key]: value });
 }
@@ -25,19 +34,22 @@ function onKeywordInput(value: string | undefined): void {
 }
 
 function onStatusChange(value: unknown): void {
-  const normalized = typeof value === 'string' && (TASK_STATUSES as readonly string[]).includes(value) ? value : '';
+  const normalized =
+    typeof value === 'string' && (TASK_STATUSES as readonly string[]).includes(value) ? value : '';
   set('status', normalized as TaskStatus | '');
 }
 
 function onPriorityChange(value: unknown): void {
-  const normalized = typeof value === 'string' && (TASK_PRIORITIES as readonly string[]).includes(value) ? value : '';
+  const normalized =
+    typeof value === 'string' && (TASK_PRIORITIES as readonly string[]).includes(value) ? value : '';
   set('priority', normalized as TaskPriority | '');
 }
 
 function onSortChange(value: unknown): void {
   const normalized =
     typeof value === 'string' && (SORT_FIELDS as readonly string[]).includes(value) ? value : 'createdAt';
-  set('sort', normalized as SortField);
+  // 按截止日期排序时默认「紧急优先」，避免已逾期任务沉底（用户仍可切换「最晚优先」）。
+  emit('update:filters', withSortChange(props.filters, normalized as SortField));
 }
 
 function onOrderChange(value: unknown): void {
@@ -45,16 +57,28 @@ function onOrderChange(value: unknown): void {
   set('order', normalized as SortOrder);
 }
 
-// 默认排序即为清除（createdAt + desc）；有关键词/状态/优先级筛选时也显示清除按钮。
+/** 当前生效的关键词/状态/优先级筛选个数，用于窄屏「筛选」按钮上的角标。 */
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (props.filters.keyword.trim() !== '') count += 1;
+  if (props.filters.status !== '') count += 1;
+  if (props.filters.priority !== '') count += 1;
+  return count;
+});
+
+/** 默认排序即为清除（createdAt + desc）；有关键词/状态/优先级筛选时也显示清除按钮。 */
 const canClear = computed(() => {
   if (props.filtersActive) return true;
   return props.filters.sort !== 'createdAt' || props.filters.order !== 'desc';
 });
+
+/** 输入关键词后的防抖请求进行中：给出「正在筛选」的即时反馈。 */
+const showFiltering = computed(() => props.loading && props.filtersActive);
 </script>
 
 <template>
   <section class="toolbar" aria-label="任务筛选与操作">
-    <div class="toolbar-group">
+    <div class="toolbar-main">
       <a-input
         class="toolbar-search"
         placeholder="搜索标题或描述…"
@@ -63,36 +87,47 @@ const canClear = computed(() => {
         @input="onKeywordInput"
         @clear="onKeywordInput('')"
       />
+      <span v-if="showFiltering" class="toolbar-filtering" role="status">筛选中…</span>
 
+      <a-button
+        class="toolbar-filter-toggle"
+        :type="filtersOpen || props.filtersActive ? 'primary' : 'secondary'"
+        :aria-expanded="filtersOpen"
+        @click="filtersOpen = !filtersOpen"
+      >
+        <template #icon><icon-filter /></template>
+        筛选
+        <span v-if="activeFilterCount > 0" class="toolbar-filter-count">{{ activeFilterCount }}</span>
+      </a-button>
+    </div>
+
+    <div class="toolbar-group" :class="{ 'toolbar-group--open': filtersOpen }">
       <a-select
         class="toolbar-select toolbar-select--status"
-        placeholder="全部状态"
-        allow-clear
-        :model-value="props.filters.status === '' ? undefined : props.filters.status"
+        :model-value="props.filters.status === '' ? 'all' : props.filters.status"
+        aria-label="状态筛选"
         @change="onStatusChange"
-        @clear="onStatusChange('')"
       >
-        <a-option v-for="status in TASK_STATUSES" :key="status" :value="status">
-          {{ STATUS_LABELS[status] }}
+        <a-option v-for="option in STATUS_FILTER_OPTIONS" :key="option.value" :value="option.value">
+          {{ option.label }}
         </a-option>
       </a-select>
 
       <a-select
         class="toolbar-select toolbar-select--priority"
-        placeholder="全部优先级"
-        allow-clear
-        :model-value="props.filters.priority === '' ? undefined : props.filters.priority"
+        :model-value="props.filters.priority === '' ? 'all' : props.filters.priority"
+        aria-label="优先级筛选"
         @change="onPriorityChange"
-        @clear="onPriorityChange('')"
       >
-        <a-option v-for="priority in TASK_PRIORITIES" :key="priority" :value="priority">
-          {{ PRIORITY_LABELS[priority] }}
+        <a-option v-for="option in PRIORITY_FILTER_OPTIONS" :key="option.value" :value="option.value">
+          {{ option.label }}
         </a-option>
       </a-select>
 
       <a-select
         class="toolbar-select toolbar-select--sort"
         :model-value="props.filters.sort"
+        aria-label="排序字段"
         @change="onSortChange"
       >
         <a-option v-for="field in SORT_FIELDS" :key="field" :value="field">
@@ -103,10 +138,11 @@ const canClear = computed(() => {
       <a-select
         class="toolbar-select toolbar-select--order"
         :model-value="props.filters.order"
+        aria-label="排序方向"
         @change="onOrderChange"
       >
         <a-option v-for="order in SORT_ORDERS" :key="order" :value="order">
-          {{ order === 'desc' ? '倒序' : '正序' }}
+          {{ sortOrderLabel(props.filters.sort, order) }}
         </a-option>
       </a-select>
 
@@ -135,23 +171,15 @@ const canClear = computed(() => {
   align-items: center;
   gap: var(--app-space-3);
   flex-wrap: wrap;
-  margin-bottom: var(--app-space-4);
+  margin-bottom: var(--app-space-3);
 }
 
-.toolbar-group {
+.toolbar-main {
   display: flex;
   align-items: center;
   gap: var(--app-space-2);
-  flex-wrap: wrap;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
-}
-
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-2);
-  flex-wrap: wrap;
 }
 
 .toolbar-search {
@@ -159,43 +187,84 @@ const canClear = computed(() => {
   max-width: 100%;
 }
 
-.toolbar-select--status {
-  width: 116px;
+/* 窄屏「筛选」开关，桌面端隐藏 */
+.toolbar-filter-toggle {
+  display: none;
+  flex-shrink: 0;
 }
 
-.toolbar-select--priority {
-  width: 128px;
+.toolbar-filter-count {
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
-.toolbar-select--sort {
-  width: 132px;
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
-.toolbar-select--order {
-  width: 92px;
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  flex-shrink: 0;
+}
+
+.toolbar-filtering {
+  font-size: 12px;
+  color: var(--app-text-3);
+  white-space: nowrap;
 }
 
 .toolbar-clear {
   color: var(--app-text-3);
 }
 
-@media (min-width: 1440px) {
-  .toolbar-group {
-    gap: var(--app-space-3);
+/* 中等宽度（如 1024×768）：收窄搜索框，保证筛选控件与操作按钮停在同一行 */
+@media (min-width: 576px) and (max-width: 1199.98px) {
+  .toolbar-search {
+    width: 200px;
   }
+}
 
+@media (min-width: 1440px) {
   .toolbar-search {
     width: 360px;
   }
 }
 
 @media (max-width: 575.98px) {
-  .toolbar-search,
-  .toolbar-select--status,
-  .toolbar-select--priority,
-  .toolbar-select--sort,
-  .toolbar-select--order {
-    width: 100%;
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--app-space-2);
+  }
+
+  .toolbar-main {
+    flex: none;
+  }
+
+  .toolbar-search {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .toolbar-filter-toggle {
+    display: inline-flex;
+  }
+
+  .toolbar-group {
+    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--app-space-2);
+  }
+
+  .toolbar-group--open {
+    display: grid;
   }
 
   .toolbar-actions {
@@ -211,11 +280,11 @@ const canClear = computed(() => {
 <style>
 /* arco Select 为多根组件，类与宽度须用全局选择器固定 */
 .toolbar-group .arco-select.toolbar-select--status {
-  width: 116px;
+  width: 128px;
 }
 
 .toolbar-group .arco-select.toolbar-select--priority {
-  width: 128px;
+  width: 136px;
 }
 
 .toolbar-group .arco-select.toolbar-select--sort {
@@ -223,7 +292,7 @@ const canClear = computed(() => {
 }
 
 .toolbar-group .arco-select.toolbar-select--order {
-  width: 92px;
+  width: 112px;
 }
 
 @media (max-width: 575.98px) {
@@ -232,6 +301,10 @@ const canClear = computed(() => {
   .toolbar-group .arco-select.toolbar-select--sort,
   .toolbar-group .arco-select.toolbar-select--order {
     width: 100%;
+  }
+
+  .toolbar-group .arco-btn.toolbar-clear {
+    grid-column: 1 / -1;
   }
 }
 </style>

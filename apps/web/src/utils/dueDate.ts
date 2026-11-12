@@ -2,8 +2,8 @@ import type { TaskStatus } from '../api/types';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** 距截止日期不足 3 天（0/1/2 天）视为“即将到期”。 */
-const SOON_DAYS_THRESHOLD = 3;
+/** 距截止日期 1-2 天视为“临近截止”；0 天单独归为“今天到期”。 */
+const SOON_DAYS_THRESHOLD = 2;
 
 export function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -55,7 +55,7 @@ export function formatDueDate(dueDate: string): string {
   return `${pad2(parts.month)}-${pad2(parts.day)}`;
 }
 
-export type DueKind = 'none' | 'normal' | 'soon' | 'overdue';
+export type DueKind = 'none' | 'normal' | 'today' | 'soon' | 'overdue';
 
 export interface DueInfo {
   kind: DueKind;
@@ -66,7 +66,9 @@ export interface DueInfo {
 /**
  * 依据状态与今天分类截止日期：
  * - 无日期 → none；已完成 → normal；
- * - 已过期（非 done）→ overdue；今天/明天/后天 → soon；其余 → normal。
+ * - 已过期（非 done）→ overdue；
+ * - 今天 → today（“今天到期”，不等同于“临近截止”）；
+ * - 明天/后天（1-2 天）→ soon；其余 → normal。
  */
 export function classifyDue(dueDate: string | null, status: TaskStatus, today: string = todayISO()): DueInfo {
   if (dueDate === null || parseDateParts(dueDate) === null) return { kind: 'none', isOverdue: false };
@@ -74,8 +76,23 @@ export function classifyDue(dueDate: string | null, status: TaskStatus, today: s
   const days = daysUntil(dueDate, today);
   if (days === null) return { kind: 'none', isOverdue: false };
   if (days < 0) return { kind: 'overdue', isOverdue: true };
-  if (days < SOON_DAYS_THRESHOLD) return { kind: 'soon', isOverdue: false };
+  if (days === 0) return { kind: 'today', isOverdue: false };
+  if (days <= SOON_DAYS_THRESHOLD) return { kind: 'soon', isOverdue: false };
   return { kind: 'normal', isOverdue: false };
+}
+
+/** 截止状态的短文案（卡片与详情共用，保证文案/样式一致）：普通/已完成/无日期返回空串。 */
+export function dueKindNote(kind: DueKind): string {
+  switch (kind) {
+    case 'overdue':
+      return '已逾期';
+    case 'today':
+      return '今天到期';
+    case 'soon':
+      return '临近截止';
+    default:
+      return '';
+  }
 }
 
 /** 任务是否逾期：dueDate < 今天 且 status != 'done'。 */

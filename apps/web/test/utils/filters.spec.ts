@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTaskQuery, hasActiveFilters } from '../../src/utils/filters';
+import { buildTaskQuery, hasActiveFilters, withSortChange } from '../../src/utils/filters';
 import { createDefaultFilter } from '../../src/api/types';
 
 describe('buildTaskQuery', () => {
@@ -43,5 +43,23 @@ describe('hasActiveFilters', () => {
 
   it('ignores pure sort changes', () => {
     expect(hasActiveFilters({ ...createDefaultFilter(), sort: 'dueDate', order: 'asc' })).toBe(false);
+  });
+});
+
+describe('withSortChange', () => {
+  it('switches to 紧急优先（asc）when picking 按截止日期 from the default 倒序', () => {
+    const next = withSortChange(createDefaultFilter(), 'dueDate');
+    expect(next.sort).toBe('dueDate');
+    expect(next.order).toBe('asc');
+  });
+
+  it('keeps an explicit 最晚优先（desc）once the user chose it', () => {
+    const explicit = { ...createDefaultFilter(), sort: 'dueDate' as const, order: 'asc' as const };
+    const next = withSortChange({ ...explicit, order: 'desc' }, 'dueDate');
+    expect(next.order).toBe('desc');
+  });
+
+  it('does not touch order for other sort fields', () => {
+    expect(withSortChange(createDefaultFilter(), 'updatedAt').order).toBe('desc');
   });
 });

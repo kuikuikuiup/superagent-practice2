@@ -74,22 +74,35 @@ describe('createFormValues / normalizeForm', () => {
 
   it('builds form values from a task (empty dueDate → empty string)', () => {
     const values = createFormValues(task);
+    // 0 是真实消费数据：编辑已有任务时必须原样回填，不能变成「未填写」。
     expect(values).toEqual({
       title: '  整理需求  ',
       description: '  说明  ',
       status: 'in_progress',
       priority: 'high',
       dueDate: '',
+      tokens: 0,
+      cost: 0,
     });
   });
 
-  it('defaults to empty todo/medium form', () => {
-    expect(createFormValues(null)).toEqual({
+  it('keeps non-zero consumption as-is', () => {
+    expect(createFormValues({ ...task, tokens: 8640, cost: 0.86 })).toMatchObject({
+      tokens: 8640,
+      cost: 0.86,
+    });
+  });
+
+  it('defaults to empty todo/medium form（新建时消费字段未填写）', () => {
+    const values = createFormValues(null);
+    expect(values).toEqual({
       title: '',
       description: '',
       status: 'todo',
       priority: 'medium',
       dueDate: '',
+      tokens: undefined,
+      cost: undefined,
     });
   });
 
