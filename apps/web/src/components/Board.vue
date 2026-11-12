@@ -213,19 +213,15 @@ function onDragEnd(event: DragEvent): void {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: minmax(0, 1fr);
-  gap: var(--app-space-4);
+  /* 列间距统一 12px（space-3）：与指标卡、工具栏、卡片间距同一节奏；
+     不再在 ≥1440px 放大到 24px，避免列间空隙明显大于其它间距。 */
+  gap: var(--app-space-3);
   align-items: stretch;
 }
 
 /* 骨架占位列不参与拉伸，保持紧凑高度 */
 .skeleton-column {
   align-self: start;
-}
-
-@media (min-width: 1440px) {
-  .board-grid {
-    gap: var(--app-space-5);
-  }
 }
 
 .skeleton-column {

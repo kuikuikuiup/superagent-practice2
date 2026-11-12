@@ -221,7 +221,8 @@ function trendOf(key: string): CardTrend | null | undefined {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--app-space-2);
+  /* 与看板列间距、工具栏间距统一为 12px 节奏 */
+  gap: var(--app-space-3);
 }
 
 .stat-card {
@@ -387,10 +388,6 @@ function trendOf(key: string): CardTrend | null | undefined {
 }
 
 @media (min-width: 1500px) {
-  .stats-grid {
-    gap: var(--app-space-3);
-  }
-
   .stat-card {
     padding: 10px 12px;
   }
