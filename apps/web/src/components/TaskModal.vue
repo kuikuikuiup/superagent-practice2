@@ -324,12 +324,14 @@ watch(
   width: 100%;
 }
 
-/* 消费说明整行展示：图标 + 小标题 + 完整句子，不再硬折行 */
+/* 消费说明整行展示：图标 + 小标题 + 完整句子，不再硬折行。
+   上方间距由上一行表单项的 margin-bottom 提供，此处不再叠加 margin-top，
+   下方间距由 modal body 的 padding-bottom 统一提供，避免「上大下无」。 */
 .task-modal-consumption-note {
   display: flex;
   align-items: flex-start;
   gap: var(--app-space-2);
-  margin-top: var(--app-space-2);
+  margin-top: 0;
   padding: var(--app-space-3) var(--app-space-4);
   background: var(--app-muted-bg);
   border: 1px solid var(--app-card-border);
@@ -382,7 +384,9 @@ watch(
 }
 
 .task-modal .arco-modal-body {
-  padding: 8px 24px 0;
+  /* 底部保留 16px：最后一块内容（消费说明）与页脚分隔线之间不再贴死，
+     与弹窗内的纵向间距节奏一致。 */
+  padding: 8px 24px var(--app-space-4);
 }
 
 .task-modal .arco-modal-footer {
