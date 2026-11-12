@@ -15,6 +15,7 @@ const {
   filters,
   tasks,
   stats,
+  filteredStats,
   trend,
   loading,
   loadError,
@@ -54,7 +55,8 @@ function openCreate(): void {
 }
 
 function openEdit(task: Task): void {
-  detailId.value = null;
+  // 从详情抽屉进入编辑时保留 detailId：编辑弹窗叠加在详情之上，
+  // 取消 / Esc 关闭编辑后仍能看到详情（TaskDetail 依据 editOpen 关闭 Esc 关闭）。
   modalError.value = null;
   modal.value = { mode: 'edit', task };
 }
@@ -170,7 +172,13 @@ async function confirmDelete(): Promise<void> {
       <template #icon><icon-exclamation-circle /></template>
     </a-alert>
 
-    <StatsBar :stats="stats" :trend="trend" :loading="loading" />
+    <StatsBar
+      :stats="stats"
+      :filtered-stats="filteredStats"
+      :filters-active="filtersActive"
+      :trend="trend"
+      :loading="loading"
+    />
 
     <Toolbar
       :filters="filters"
@@ -208,9 +216,11 @@ async function confirmDelete(): Promise<void> {
     <TaskDetail
       v-if="detailTask !== null"
       :task="detailTask"
+      :edit-open="modal !== null || deleteCandidate !== null"
       @close="detailId = null"
       @edit="openEdit"
       @delete="requestDelete"
+      @move="onMove"
     />
 
     <!-- 删除二次确认：arco Modal -->
@@ -241,12 +251,13 @@ async function confirmDelete(): Promise<void> {
   align-items: stretch;
   box-sizing: border-box;
   /* 视口高度基线：看板吃掉剩余高度、列内滚动，而不是整页滚动。
-     移动端回退到自然文档流（列内滚动上限由列样式控制）。 */
+     顶部区域保持紧凑，把 1280×800 等常见桌面高度尽量留给看板。
+     窄屏回退到自然文档流（见文件末尾媒体查询）。 */
   height: 100vh;
   min-height: 640px;
   max-width: var(--app-max-width);
   margin: 0 auto;
-  padding: var(--app-space-5) var(--app-page-pad-x) var(--app-space-5);
+  padding: var(--app-space-4) var(--app-page-pad-x);
   overflow: hidden;
 }
 
@@ -264,7 +275,7 @@ async function confirmDelete(): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--app-space-3);
-  margin-bottom: var(--app-space-5);
+  margin-bottom: var(--app-space-4);
 }
 
 .app-logo {
@@ -314,6 +325,23 @@ async function confirmDelete(): Promise<void> {
   margin-top: var(--app-space-2);
   font-size: 12px;
   color: var(--app-danger);
+}
+
+/* 窄屏（≤991.98px）：放弃 100vh 固定外壳，回到文档流。
+   页面整体纵向滚动，看板单列纵向铺开，不再出现“只剩底部一条”/列重叠。 */
+@media (max-width: 991.98px) {
+  .app {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    padding: var(--app-space-4) var(--app-space-4) var(--app-space-6);
+  }
+
+  /* 看板高度由内容决定，不再拉伸填满视口 */
+  .app > :deep(.board) {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
 }
 
 @media (max-width: 575.98px) {

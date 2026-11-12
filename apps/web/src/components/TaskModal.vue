@@ -4,7 +4,7 @@ import type { FieldRule, FormInstance } from '@arco-design/web-vue';
 import type { ApiError } from '../api/client';
 import type { Task, TaskInput } from '../api/types';
 import { TASK_STATUSES, TASK_PRIORITIES } from '../api/types';
-import { PRIORITY_LABELS, STATUS_LABELS } from '../utils/labels';
+import { PRIORITY_LABELS, STATUS_LABELS, TOKENS_LABEL } from '../utils/labels';
 import { isValidDueDate } from '../utils/dueDate';
 import {
   COST_MAX,
@@ -85,14 +85,14 @@ const tokensRules: FieldRule[] = [
         return;
       }
       if (n < 0) {
-        callback('Token 用量不能为负数');
+        callback('词元用量不能为负数');
         return;
       }
       if (!Number.isInteger(n)) {
-        callback('Token 用量必须是整数');
+        callback('词元用量必须是整数');
         return;
       }
-      callback(n > TOKENS_MAX ? `Token 用量不能超过 ${TOKENS_MAX}` : undefined);
+      callback(n > TOKENS_MAX ? `词元用量不能超过 ${TOKENS_MAX}` : undefined);
     },
   },
 ];
@@ -229,10 +229,10 @@ watch(
         </a-form-item>
       </div>
 
-      <div class="task-modal-row">
+      <div class="task-modal-row task-modal-row--consumption">
         <a-form-item
           field="tokens"
-          label="Token 用量"
+          :label="TOKENS_LABEL"
           :validate-status="serverErrors['tokens'] ? 'error' : undefined"
           :rules="tokensRules"
         >
@@ -265,8 +265,17 @@ watch(
           />
           <p v-if="serverErrors['cost']" class="task-modal-server-error" role="alert">{{ serverErrors['cost'] }}</p>
         </a-form-item>
+      </div>
 
-        <span class="task-modal-consumption-hint">消费数据由执行后如实填写，将计入统计卡与详情页</span>
+      <!-- 消费说明独立整行：原先挤在三列窄栏里会被硬折行，可读性差 -->
+      <div class="task-modal-consumption-note">
+        <span class="task-modal-consumption-note-icon" aria-hidden="true">
+          <icon-info-circle />
+        </span>
+        <div class="task-modal-consumption-note-body">
+          <p class="task-modal-consumption-note-title">消费数据</p>
+          <p class="task-modal-consumption-note-text">消费数据由执行后如实填写，将计入统计卡与详情页。</p>
+        </div>
       </div>
     </a-form>
 
@@ -303,16 +312,51 @@ watch(
   gap: var(--app-space-4);
 }
 
+/* 消费字段独立两列，避免与状态/优先级/截止日期挤在一行 */
+.task-modal-row--consumption {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--app-space-3);
+}
+
 .task-modal-row :deep(.arco-date-picker),
 .task-modal-row :deep(.arco-select-view-single),
 .task-modal-row :deep(.arco-input-number) {
   width: 100%;
 }
 
-.task-modal-consumption-hint {
-  align-self: center;
-  font-size: 12px;
+/* 消费说明整行展示：图标 + 小标题 + 完整句子，不再硬折行 */
+.task-modal-consumption-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--app-space-2);
+  margin-top: var(--app-space-2);
+  padding: var(--app-space-3) var(--app-space-4);
+  background: var(--app-muted-bg);
+  border: 1px solid var(--app-card-border);
+  border-radius: var(--app-radius);
+}
+
+.task-modal-consumption-note-icon {
+  flex-shrink: 0;
+  font-size: 15px;
   line-height: 1.5;
+  color: var(--app-text-3);
+}
+
+.task-modal-consumption-note-body {
+  min-width: 0;
+}
+
+.task-modal-consumption-note-title {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--app-text-2);
+}
+
+.task-modal-consumption-note-text {
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--app-text-3);
 }
 

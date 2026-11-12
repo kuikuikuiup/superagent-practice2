@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { Task, TaskStatus } from '../api/types';
-import { STATUS_OPTIONS } from '../utils/labels';
-import { PRIORITY_LABELS, PRIORITY_TAG_COLORS } from '../utils/labels';
-import { classifyDue, formatDueDate } from '../utils/dueDate';
+import { PRIORITY_LABELS, PRIORITY_TAG_COLORS, STATUS_OPTIONS, TOKENS_UNIT } from '../utils/labels';
+import { classifyDue, dueKindNote, formatDueDate } from '../utils/dueDate';
 import { formatCost, formatTokens } from '../utils/format';
 
 const props = defineProps<{
@@ -18,8 +17,13 @@ const emit = defineEmits<{
 }>();
 
 const due = computed(() => classifyDue(props.task.dueDate, props.task.status));
+/** 截止状态短文案（已逾期 / 今天到期 / 临近截止），与详情页共用同一来源。 */
+const dueNote = computed(() => dueKindNote(due.value.kind));
 const priorityLabel = computed(() => PRIORITY_LABELS[props.task.priority]);
 const priorityColor = computed(() => PRIORITY_TAG_COLORS[props.task.priority]);
+
+// 有真实消费数据（0 不算“有数据”，避免每张卡都挂一条 0 值噪音）
+const hasConsumption = computed(() => props.task.tokens > 0 || props.task.cost > 0);
 
 // 拖拽时的半透明占位反馈（dragend 兜底恢复）
 const isDragging = ref(false);
@@ -59,6 +63,7 @@ function onCardClick(event: MouseEvent): void {
   <article
     class="card"
     :class="{ 'card--dragging': isDragging }"
+    :data-task-id="props.task.id"
     draggable="true"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
@@ -95,22 +100,33 @@ function onCardClick(event: MouseEvent): void {
 
     <div class="card-meta">
       <a-tag :color="priorityColor" size="small" class="card-priority">{{ priorityLabel }}</a-tag>
-      <a-tag v-if="due.isOverdue" color="red" size="small" class="card-overdue">
+
+      <!-- 截止状态：逾期红色 / 今天到期橙色，日期文字同步警示色；临近截止仅有文字警示 -->
+      <a-tag v-if="due.kind === 'overdue'" color="red" size="small" class="card-overdue">
         <template #icon><icon-exclamation-circle /></template>
         已逾期
       </a-tag>
-      <span v-if="due.kind !== 'none'" class="due" :class="`due--${due.kind}`">
+      <a-tag v-else-if="due.kind === 'today'" color="orange" size="small" class="card-due-today">
+        <template #icon><icon-clock-circle /></template>
+        今天到期
+      </a-tag>
+      <span
+        v-if="due.kind !== 'none'"
+        class="due"
+        :class="`due--${due.kind}`"
+        :title="dueNote === '' ? '截止日期' : `${dueNote}（截止日期 ${props.task.dueDate ?? ''}）`"
+      >
         <icon-calendar />
         <span>{{ formatDueDate(props.task.dueDate ?? '') }}</span>
       </span>
-      <span v-if="props.task.tokens > 0 || props.task.cost > 0" class="card-consumption">
-        <template v-if="props.task.cost > 0">{{ formatCost(props.task.cost) }}</template>
-        <template v-else>—</template>
+
+      <span v-if="hasConsumption" class="card-consumption">
+        <span class="card-consumption-cost">{{ formatCost(props.task.cost) }}</span>
         <i class="card-consumption-sep">·</i>
-        <template v-if="props.task.tokens > 0">{{ formatTokens(props.task.tokens) }} tok</template>
-        <template v-else>— tok</template>
+        <span>{{ formatTokens(props.task.tokens) }} {{ TOKENS_UNIT }}</span>
       </span>
 
+      <!-- 桌面端默认为克制的悬停/聚焦操作区；窄屏常驻可见（见样式） -->
       <span class="card-move">
         <span class="card-move-label">移至</span>
         <a-select
@@ -141,16 +157,22 @@ function onCardClick(event: MouseEvent): void {
   border: 1px solid var(--app-card-border);
   border-radius: var(--app-radius);
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
 }
 
+/* 悬停 / 键盘聚焦反馈：描边 + 浅阴影 + 1px 抬升，克制但明确可感知 */
 .card:hover,
 .card:focus-within {
   border-color: var(--app-primary);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .card:hover .card-title {
+  color: var(--app-primary);
+}
+
+.card:focus-within .card-title {
   color: var(--app-primary);
 }
 
@@ -213,6 +235,7 @@ function onCardClick(event: MouseEvent): void {
 .card-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--app-space-2);
   min-height: 24px;
   margin-top: var(--app-space-1);
@@ -220,7 +243,8 @@ function onCardClick(event: MouseEvent): void {
 
 /* arco Tag 去边线，保持轻量小圆片视觉 */
 .card-priority,
-.card-overdue {
+.card-overdue,
+.card-due-today {
   border: none;
   margin: 0;
   flex-shrink: 0;
@@ -259,16 +283,25 @@ function onCardClick(event: MouseEvent): void {
   white-space: nowrap;
 }
 
+/* 临近截止：日期文字用警示色（与详情页「临近截止」一致） */
 .due--soon {
   color: var(--app-warning);
-}
-
-.due--overdue {
-  color: var(--app-danger);
   font-weight: 500;
 }
 
-/* 消费小字（¥ / Token），与日期同一字号层级 */
+/* 今天到期：橙色，与「今天到期」标签同色系 */
+.due--today {
+  color: var(--app-warning);
+  font-weight: 600;
+}
+
+/* 已逾期：红色加粗 */
+.due--overdue {
+  color: var(--app-danger);
+  font-weight: 600;
+}
+
+/* 消费小字（¥ / 词元），与日期同一字号层级 */
 .card-consumption {
   display: inline-flex;
   align-items: center;
@@ -298,7 +331,7 @@ function onCardClick(event: MouseEvent): void {
 
 .card-move-label {
   font-size: 12px;
-  color: var(--app-text-2);
+  color: var(--app-text-3);
   white-space: nowrap;
 }
 
@@ -312,6 +345,40 @@ function onCardClick(event: MouseEvent): void {
   font-size: 13px;
   color: var(--app-text-1);
 }
+
+/*
+ * 桌面端：仍保留「移至」但其显隐收敛到悬停 / 键盘聚焦 / 触屏聚焦时，
+ * 避免每张卡片都挂一个常驻下拉抢占信息层级；
+ * 用 opacity + pointer-events（而非 display/visibility）保证仍可 Tab 聚焦并通过 :focus-within 显现。
+ */
+@media (min-width: 576px) {
+  .card-move {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  .card:hover .card-move,
+  .card:focus-within .card-move {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* 窄屏（<576px）：状态修改必须常驻、直接可见、不依赖拖拽或悬停 */
+@media (max-width: 575.98px) {
+  .card-move {
+    flex-basis: 100%;
+    margin-left: 0;
+    margin-top: var(--app-space-1);
+  }
+
+  .card-move-select {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+}
 </style>
 
 <style>
@@ -319,7 +386,6 @@ function onCardClick(event: MouseEvent): void {
    覆盖其根节点或传送后节点的样式必须使用全局选择器（类名仍为本组件独有）。 */
 .card-move .arco-select.card-move-select {
   min-width: 92px;
-  max-width: 128px;
 }
 
 /* 更多操作菜单里的“删除”使用危险口径（Dropdown 内容项传送至 body，须全局选择器） */

@@ -15,9 +15,9 @@ export interface TaskFormValues {
   priority: TaskPriority;
   /** 空字符串表示未设置截止日期 */
   dueDate: string;
-  /** Agent 执行 Token 用量（undefined 表示未填写） */
+  /** Agent 执行词元用量（undefined 表示未填写；0 是真实值） */
   tokens?: number;
-  /** 消费金额（元，最多两位小数；undefined 表示未填写） */
+  /** 消费金额（元，最多两位小数；undefined 表示未填写；0 是真实值） */
   cost?: number;
 }
 
@@ -43,7 +43,7 @@ export function validateTaskForm(values: TaskFormValues): TaskFormErrors {
   if (!TASK_PRIORITIES.includes(values.priority)) errors['priority'] = '请选择有效的优先级';
 
   if (values.tokens !== undefined && (!Number.isInteger(values.tokens) || values.tokens < 0 || values.tokens > TOKENS_MAX)) {
-    errors['tokens'] = 'Token 用量必须是不超过 100000000 的非负整数';
+    errors['tokens'] = '词元用量必须是不超过 100000000 的非负整数';
   }
   if (values.cost !== undefined && (!Number.isFinite(values.cost) || values.cost < 0 || values.cost > COST_MAX)) {
     errors['cost'] = '消费金额必须是 0..1000000 的数字';
@@ -54,7 +54,11 @@ export function validateTaskForm(values: TaskFormValues): TaskFormErrors {
   return errors;
 }
 
-/** 由已有任务（或空）构造表单初始值。 */
+/**
+ * 由已有任务（或空）构造表单初始值。
+ * 0 是真实消费数据，必须原样保留（不能映射为 undefined，否则编辑弹窗会把 0 显示成「未填写」）；
+ * 只有新建任务（无 task）时消费字段才是未填写（undefined → 显示 placeholder）。
+ */
 export function createFormValues(task?: Task | null): TaskFormValues {
   return {
     title: task?.title ?? '',
@@ -62,8 +66,8 @@ export function createFormValues(task?: Task | null): TaskFormValues {
     status: task?.status ?? 'todo',
     priority: task?.priority ?? 'medium',
     dueDate: task?.dueDate ?? '',
-    tokens: task?.tokens === 0 ? undefined : task?.tokens,
-    cost: task?.cost === 0 ? undefined : task?.cost,
+    tokens: task ? task.tokens : undefined,
+    cost: task ? task.cost : undefined,
   };
 }
 

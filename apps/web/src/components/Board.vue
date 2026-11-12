@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import BoardColumn from './BoardColumn.vue';
 import type { Task, TaskStatus } from '../api/types';
 import { TASK_STATUSES } from '../api/types';
@@ -39,15 +39,116 @@ const columns = computed<Column[]>(() => {
 
 const emptyText = computed(() => (props.filtersActive ? '无匹配任务' : '暂无任务'));
 
-function onDropStatus(status: TaskStatus, event: DragEvent): void {
-  const id = event.dataTransfer?.getData('text/plain');
-  if (!id) return;
+/**
+ * 拖拽状态：
+ * - draggedId：dragstart 时记录的源任务 id（内存兜底，不依赖 dataTransfer 读取成功）
+ * - dragOverKey：当前指针所在列，用于列高亮
+ * drop / dragend 时都会清空；dragend 依赖它为 null 判断 drop 是否已处理，避免重复提交。
+ */
+const draggedId = ref<string | null>(null);
+const dragOverKey = ref<TaskStatus | null>(null);
+
+function isTaskStatus(value: string | null | undefined): value is TaskStatus {
+  return value !== null && value !== undefined && (TASK_STATUSES as readonly string[]).includes(value);
+}
+
+function resolveColumn(target: EventTarget | null): HTMLElement | null {
+  return target instanceof Element ? target.closest<HTMLElement>('.column') : null;
+}
+
+/**
+ * 只有 .card 能发起拖拽（capture 阶段先于卡片自身处理）：
+ * 列头「进行中 2」等文本拖拽一律 preventDefault，避免其文本被当成任务 ID 提交。
+ */
+function onDragStart(event: DragEvent): void {
+  const card = resolveCard(event.target);
+  const id = card?.dataset.taskId ?? '';
+  const task = id === '' ? undefined : props.tasks.find((item) => item.id === id);
+  if (card === null || task === undefined) {
+    event.preventDefault();
+    draggedId.value = null;
+    dragOverKey.value = null;
+    return;
+  }
+  draggedId.value = task.id;
+  if (event.dataTransfer !== null) {
+    event.dataTransfer.setData('text/plain', task.id);
+    event.dataTransfer.effectAllowed = 'move';
+  }
+}
+
+function resolveCard(target: EventTarget | null): HTMLElement | null {
+  return target instanceof Element ? target.closest<HTMLElement>('.card') : null;
+}
+
+/** board 级 dragover：统一 preventDefault 允许放置，并按最近的 .column 更新高亮 */
+function onDragOver(event: DragEvent): void {
+  event.preventDefault();
+  if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'move';
+  const column = resolveColumn(event.target);
+  const status = column?.dataset.column ?? null;
+  dragOverKey.value = isTaskStatus(status) ? status : null;
+}
+
+/** 离开看板（而非在看板内部元素间移动）时清除列高亮 */
+function onDragLeave(event: DragEvent): void {
+  const board = event.currentTarget;
+  if (board instanceof Node && event.relatedTarget instanceof Node && board.contains(event.relatedTarget)) {
+    return;
+  }
+  dragOverKey.value = null;
+}
+
+/** 提交移动：未知 id、拖拽到原列（状态未变）都静默忽略，不发请求 */
+function commitMove(id: string, status: TaskStatus): void {
+  const task = props.tasks.find((item) => item.id === id);
+  if (task === undefined || task.status === status) return;
   emit('move', id, status);
+}
+
+function onDrop(event: DragEvent): void {
+  event.preventDefault();
+  const id = (draggedId.value ?? event.dataTransfer?.getData('text/plain') ?? '').trim();
+  // 先清空内存状态：dragend 紧随 drop 触发，据此判断 drop 已处理、无需兜底
+  draggedId.value = null;
+  dragOverKey.value = null;
+  if (id === '') return;
+  const column = resolveColumn(event.target);
+  const status = column?.dataset.column ?? null;
+  if (!isTaskStatus(status)) return;
+  commitMove(id, status);
+}
+
+/**
+ * dragend 兜底：快速拖动、松开位置偏移导致 drop 未落在看板上时，
+ * 用释放点 elementFromPoint 找最近的列并提交，避免“拖了但没反应”。
+ */
+function onDragEnd(event: DragEvent): void {
+  const id = draggedId.value;
+  draggedId.value = null;
+  dragOverKey.value = null;
+  if (id === null) return;
+  // 取消拖拽（Esc）时坐标为 0，不做兜底
+  if (event.clientX <= 0 && event.clientY <= 0) return;
+  const element = document.elementFromPoint(event.clientX, event.clientY);
+  const column = resolveColumn(element);
+  const status = column?.dataset.column ?? null;
+  if (!isTaskStatus(status)) return;
+  commitMove(id, status);
 }
 </script>
 
 <template>
-  <section class="board" aria-label="任务看板">
+  <section
+    class="board"
+    aria-label="任务看板"
+    @dragstart.capture="onDragStart"
+    @dragover="onDragOver"
+    @dragenter="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+    @dragend="onDragEnd"
+  >
     <!-- 首次加载：arco Skeleton 提示三列布局骨架（比整体 Spin 更能传达版式） -->
     <div v-if="loading && tasks.length === 0" class="board-grid" aria-hidden="true">
       <div v-for="n in 3" :key="n" class="skeleton-column">
@@ -79,7 +180,7 @@ function onDropStatus(status: TaskStatus, event: DragEvent): void {
       </a-button>
     </div>
 
-    <!-- 三列看板 -->
+    <!-- 三列看板（窄屏单列纵向排列） -->
     <div v-else class="board-grid">
       <BoardColumn
         v-for="column in columns"
@@ -88,7 +189,7 @@ function onDropStatus(status: TaskStatus, event: DragEvent): void {
         :title="column.title"
         :tasks="column.tasks"
         :empty-text="emptyText"
-        @drop-status="onDropStatus"
+        :drag-over="dragOverKey === column.key"
         @open="emit('open', $event)"
         @edit="emit('edit', $event)"
         @delete="emit('delete', $event)"
@@ -177,9 +278,22 @@ function onDropStatus(status: TaskStatus, event: DragEvent): void {
   font-size: 15px;
 }
 
+/* 窄屏：看板退化为单列文档流，列高自适应内容、整页滚动 */
 @media (max-width: 991.98px) {
+  .board {
+    flex: none;
+    min-height: 0;
+  }
+
   .board-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-3);
+    flex: none;
+  }
+
+  .skeleton-column {
+    align-self: stretch;
   }
 }
 </style>
