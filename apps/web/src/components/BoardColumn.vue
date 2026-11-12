@@ -67,9 +67,11 @@ const emit = defineEmits<{
   /* 高度吃满网格行高（= 看板剩余高度）；min-height:0 允许短屏收缩而不是撑破布局 */
   height: 100%;
   min-height: 0;
-  /* 列内滚动由 .column-list 承担，列本身裁掉圆角外的溢出 */
+  /* 列内滚动由 .column-list 承担，列本身裁掉圆角外的溢出。
+     右内边距 8px + 滚动条槽 8px（scrollbar-gutter: stable）= 左内边距 16px，
+     保证卡片左右内缩一致（16px / 16px），跨列卡片横向间距回到 16+16+16 的 8px 间距体系。 */
   overflow: hidden;
-  padding: var(--app-space-3) var(--app-space-4);
+  padding: var(--app-space-3) var(--app-space-2) var(--app-space-3) var(--app-space-4);
   background: var(--app-muted-bg);
   border: 1px solid var(--app-card-border);
   border-radius: var(--app-radius);
@@ -162,15 +164,18 @@ const emit = defineEmits<{
   overscroll-behavior: contain;
   /* 底部 padding：滚到底时最后一张卡片不贴边、悬停阴影不被裁掉 */
   padding: 2px 0 var(--app-space-3);
-  /* Firefox 细滚动条 */
-  scrollbar-width: thin;
-  scrollbar-color: var(--app-text-3) var(--app-muted-bg-strong);
+  /* 说明：滚动条外观统一由下方 ::-webkit-scrollbar 定义（8px 宽、深色 thumb）。
+     不再设置 scrollbar-width/scrollbar-color：Chromium 一旦设置这两个标准属性，
+     会改用 UA 自带的 thin/颜色滚动条（实测 thin=10px），与列右内边距 8px 相加后
+     卡片右缩进变成 18px、与左缩进 16px 不对称。 */
 }
 
-/* WebKit 滚动条：10px 宽 + 深色 thumb，默认状态即可看见（不再是 6px 浅灰） */
+/* WebKit 滚动条：8px 宽 + 深色 thumb，默认状态即可看见；
+   宽度与列右内边距 8px 相加正好等于左内边距 16px，卡片左右留白对称。 */
 .column-list::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  /* 注意：::-webkit-scrollbar 内不支持 CSS 变量，此处用字面量 8px 与列右内边距 8px 相加 = 左内边距 16px */
+  width: 8px;
+  height: 8px;
 }
 
 .column-list::-webkit-scrollbar-track {
